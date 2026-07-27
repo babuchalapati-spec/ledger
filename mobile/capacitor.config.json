@@ -1,0 +1,9 @@
+{
+  "appId": "com.ledgerrecords.app",
+  "appName": "Ledger Records",
+  "webDir": "../frontend/dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}

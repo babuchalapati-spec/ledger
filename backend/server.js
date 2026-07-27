@@ -1,0 +1,71 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const mongoose = require('mongoose');
+
+const customerRoutes = require('./routes/customers');
+const entryRoutes = require('./routes/entries');
+const ledgerRoutes = require('./routes/ledger');
+const settingsRoutes = require('./routes/settings');
+const authRoutes = require('./routes/auth');
+
+const app = express();
+const PORT = process.env.PORT || 8811;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/ledger_app';
+
+app.use(cors());
+app.use(express.json());
+app.use('/uploads', express.static(process.env.UPLOAD_DIR || path.join(__dirname, 'uploads')));
+
+app.use('/api/customers', customerRoutes);
+app.use('/api/entries', entryRoutes);
+app.use('/api/ledger', ledgerRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/auth', authRoutes);
+
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// Lets the desktop Settings page show the LAN address the phone app should connect to.
+app.get('/api/network-info', (req, res) => {
+  const addresses = [];
+  const interfaces = os.networkInterfaces();
+  Object.values(interfaces).forEach((ifaceList) => {
+    (ifaceList || []).forEach((iface) => {
+      if (iface.family === 'IPv4' && !iface.internal) addresses.push(iface.address);
+    });
+  });
+  res.json({ addresses, port: PORT });
+});
+
+// Serve the built frontend (frontend/dist) when present, so the app can run
+// from a single origin/port (used by the packaged Electron desktop app).
+const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get(/^(?!\/api|\/uploads).*/, (req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
+
+// Catches Multer upload errors (bad file type, file too large) and any other
+// route errors, so the client always gets JSON instead of Express's default HTML page.
+app.use((err, req, res, next) => {
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ error: 'File is too large (max 10MB per file)' });
+  }
+  res.status(400).json({ error: err.message || 'Unexpected error' });
+});
+
+mongoose.connect(MONGO_URI)
+  .then(() => {
+    console.log('Connected to MongoDB at', MONGO_URI);
+    app.listen(PORT, () => console.log(`Ledger backend running on http://localhost:${PORT}`));
+  })
+  .catch((err) => {
+    console.error('MongoDB connection failed:', err.message);
+    console.error('Make sure MongoDB is installed and running locally (mongod).');
+    process.exit(1);
+  });

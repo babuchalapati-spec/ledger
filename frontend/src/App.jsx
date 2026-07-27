@@ -5,6 +5,7 @@ import CustomerLedger from './pages/CustomerLedger';
 import Settings from './pages/Settings';
 import ServerConnect from './pages/ServerConnect';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import { getSettings, getAuthStatus, isMobileApp, getServerUrl } from './api/client';
 import './App.css';
 
@@ -18,7 +19,19 @@ function App() {
   const [mobileConnected, setMobileConnected] = useState(!isMobileApp() || !!getServerUrl());
   const [authChecked, setAuthChecked] = useState(false);
   const [locked, setLocked] = useState(false);
-  const [loggedInUser, setLoggedInUser] = useState(sessionStorage.getItem(SESSION_USER_KEY) || '');
+  const [needsRegistration, setNeedsRegistration] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState(localStorage.getItem(SESSION_USER_KEY) || '');
+
+  const checkAuth = () => {
+    getAuthStatus()
+      .then((s) => {
+        const loggedIn = !!localStorage.getItem(SESSION_USER_KEY);
+        setNeedsRegistration(!s.hasUsers);
+        setLocked(s.hasUsers && !loggedIn);
+      })
+      .catch(() => {})
+      .finally(() => setAuthChecked(true));
+  };
 
   useEffect(() => {
     if (!mobileConnected) return;
@@ -29,12 +42,7 @@ function App() {
       })
       .catch(() => {});
 
-    getAuthStatus()
-      .then((s) => {
-        setLocked(s.hasUsers && !sessionStorage.getItem(SESSION_USER_KEY));
-      })
-      .catch(() => {})
-      .finally(() => setAuthChecked(true));
+    checkAuth();
   }, [mobileConnected]);
 
   const handleSettingsSaved = (s) => {
@@ -43,16 +51,17 @@ function App() {
   };
 
   const handleLoggedIn = (username) => {
-    sessionStorage.setItem(SESSION_USER_KEY, username);
+    localStorage.setItem(SESSION_USER_KEY, username);
     setLoggedInUser(username);
     setLocked(false);
+    setNeedsRegistration(false);
   };
 
   const handleLogOff = () => {
-    sessionStorage.removeItem(SESSION_USER_KEY);
+    localStorage.removeItem(SESSION_USER_KEY);
     setLoggedInUser('');
-    setLocked(true);
     goHome();
+    checkAuth();
   };
 
   const goHome = () => {
@@ -80,6 +89,14 @@ function App() {
   }
 
   if (!authChecked) return null;
+
+  if (needsRegistration) {
+    return (
+      <div className="app">
+        <Register onRegistered={handleLoggedIn} />
+      </div>
+    );
+  }
 
   if (locked) {
     return (
@@ -116,7 +133,7 @@ function App() {
 
       <main className="app-main">
         {view === 'settings' && (
-          <Settings onSaved={handleSettingsSaved} onChangeServer={() => setMobileConnected(false)} onUsersChanged={setLocked} />
+          <Settings onSaved={handleSettingsSaved} onChangeServer={() => setMobileConnected(false)} onUsersChanged={checkAuth} />
         )}
         {view === 'home' && (
           <Home

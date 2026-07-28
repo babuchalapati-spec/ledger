@@ -9,6 +9,7 @@ import Settings from './pages/Settings';
 import ServerConnect from './pages/ServerConnect';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import UpgradeScreen from './pages/UpgradeScreen';
 import { getSettings, getAccountMe, isMobileApp, getServerUrl, getToken, clearToken } from './api/client';
 import './App.css';
 
@@ -22,6 +23,7 @@ function App() {
   const [mobileConnected, setMobileConnected] = useState(!isMobileApp() || !!getServerUrl());
   const [authChecked, setAuthChecked] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
+  const [trialExpired, setTrialExpired] = useState(false);
 
   const checkAuth = () => {
     if (!getToken()) {
@@ -33,10 +35,12 @@ function App() {
       .then((account) => {
         setModules(account.modules || {});
         setLoggedIn(true);
+        setTrialExpired(false);
       })
-      .catch(() => {
+      .catch((err) => {
         clearToken();
         setLoggedIn(false);
+        setTrialExpired(!!err.response?.data?.trialExpired);
       })
       .finally(() => setAuthChecked(true));
   };
@@ -63,6 +67,7 @@ function App() {
 
   const handleLoggedIn = () => {
     setLoggedIn(true);
+    setTrialExpired(false);
     checkAuth();
   };
 
@@ -99,13 +104,21 @@ function App() {
 
   if (!authChecked) return null;
 
+  if (trialExpired) {
+    return (
+      <div className="app">
+        <UpgradeScreen />
+      </div>
+    );
+  }
+
   if (!loggedIn) {
     return (
       <div className="app">
         {authView === 'register' ? (
           <Register onRegistered={handleLoggedIn} onSwitchToLogin={() => setAuthView('login')} />
         ) : (
-          <Login onLoggedIn={handleLoggedIn} onSwitchToRegister={() => setAuthView('register')} />
+          <Login onLoggedIn={handleLoggedIn} onSwitchToRegister={() => setAuthView('register')} onTrialExpired={() => setTrialExpired(true)} />
         )}
       </div>
     );

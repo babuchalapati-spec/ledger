@@ -35,7 +35,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const status = err.response?.status;
+    // 401 = bad/expired session; 402 = trial ended; 403 = suspended/cancelled account
+    if (status === 401 || status === 402 || status === 403) {
       if (err.config?.url?.startsWith('/superadmin')) clearAdminToken();
       else clearToken();
     }
@@ -80,6 +82,10 @@ export const login = (email, password) => api.post('/auth/login', { email, passw
 export const getSecurityQuestion = (email) => api.get('/auth/security-question', { params: { email } }).then((r) => r.data);
 export const resetPassword = (data) => api.post('/auth/reset-password', data).then((r) => r.data);
 
+// Public: shown on the trial-expired / upgrade screen
+export const getPublicPlans = () => api.get('/auth/plans').then((r) => r.data);
+export const getPublicPlatformSettings = () => api.get('/auth/platform-settings').then((r) => r.data);
+
 // Current account profile/modules + its logins
 export const getAccountMe = () => api.get('/account/me').then((r) => r.data);
 export const getAccountUsers = () => api.get('/account/users').then((r) => r.data);
@@ -92,6 +98,12 @@ export const superAdminRegister = (data) => api.post('/superadmin/register', dat
 export const superAdminLogin = (email, password) => api.post('/superadmin/login', { email, password }).then((r) => r.data);
 export const getAccounts = () => api.get('/superadmin/accounts').then((r) => r.data);
 export const updateAccount = (id, data) => api.put(`/superadmin/accounts/${id}`, data).then((r) => r.data);
+export const getPlans = () => api.get('/superadmin/plans').then((r) => r.data);
+export const createPlan = (data) => api.post('/superadmin/plans', data).then((r) => r.data);
+export const updatePlan = (id, data) => api.put(`/superadmin/plans/${id}`, data).then((r) => r.data);
+export const deletePlan = (id) => api.delete(`/superadmin/plans/${id}`).then((r) => r.data);
+export const getPlatformSettings = () => api.get('/superadmin/platform-settings').then((r) => r.data);
+export const updatePlatformSettings = (data) => api.put('/superadmin/platform-settings', data).then((r) => r.data);
 
 export const getItems = () => api.get('/items').then((r) => r.data);
 export const createItem = (data) => api.post('/items', data).then((r) => r.data);

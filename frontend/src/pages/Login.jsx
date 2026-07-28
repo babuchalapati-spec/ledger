@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { login, getSecurityQuestion, resetPassword, setToken } from '../api/client';
 
-export default function Login({ onLoggedIn, onSwitchToRegister }) {
+export default function Login({ onLoggedIn, onSwitchToRegister, onTrialExpired }) {
   const [mode, setMode] = useState('login'); // 'login' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,6 +25,10 @@ export default function Login({ onLoggedIn, onSwitchToRegister }) {
       setToken(result.token);
       onLoggedIn(result.businessName, result.email);
     } catch (err) {
+      if (err.response?.data?.trialExpired) {
+        onTrialExpired?.();
+        return;
+      }
       setError(err.response?.data?.error || 'Incorrect email or password');
     } finally {
       setChecking(false);

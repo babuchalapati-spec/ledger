@@ -3,8 +3,11 @@ const router = express.Router();
 const crypto = require('crypto');
 const Account = require('../models/Account');
 const PlatformUser = require('../models/PlatformUser');
+const Plan = require('../models/Plan');
+const PlatformSettings = require('../models/PlatformSettings');
 const { hashPassword, verifyPassword } = require('../utils/password');
 const { signUserToken } = require('../utils/jwt');
+const { TRIAL_DURATION_MS, isTrialExpired } = require('../utils/trial');
 
 const normalizeAnswer = (s) => (s || '').trim().toLowerCase();
 const normalizeEmail = (s) => (s || '').trim().toLowerCase();
@@ -31,6 +34,9 @@ router.post('/register', async (req, res) => {
       businessName,
       dbName: generateDbName(),
       status: 'trial',
+      trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
+      // Full access during the trial day, so there's something to actually try.
+      modules: { groceryInventory: true, deliveries: true },
     });
 
     const { hash, salt } = hashPassword(password);
@@ -63,6 +69,14 @@ router.post('/login', async (req, res) => {
     }
     const account = await Account.findById(user.account);
     if (!account) return res.status(500).json({ error: 'Account record missing for this login' });
+
+    if (isTrialExpired(account)) {
+      account.status = 'expired';
+      await account.save();
+    }
+    if (account.status === 'expired') {
+      return res.status(402).json({ error: 'Your free trial has ended. Please complete payment to keep using this app.', trialExpired: true });
+    }
     if (account.status === 'suspended' || account.status === 'cancelled') {
       return res.status(403).json({ error: 'This account is not active. Please contact support.' });
     }
@@ -100,6 +114,26 @@ router.post('/reset-password', async (req, res) => {
     user.passwordSalt = salt;
     await user.save();
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Public: what a customer sees on the trial-expired / upgrade screen
+router.get('/plans', async (req, res) => {
+  try {
+    const plans = await Plan.find({ isActive: true }).sort({ price: 1 });
+    res.json(plans);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/platform-settings', async (req, res) => {
+  try {
+    let settings = await PlatformSettings.findOne();
+    if (!settings) settings = await PlatformSettings.create({});
+    res.json(settings);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

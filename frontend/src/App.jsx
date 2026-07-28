@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Home from './pages/Home';
 import CustomerList from './pages/CustomerList';
 import CustomerLedger from './pages/CustomerLedger';
+import Inventory from './pages/Inventory';
 import Settings from './pages/Settings';
 import ServerConnect from './pages/ServerConnect';
 import Login from './pages/Login';
@@ -12,7 +13,7 @@ import './App.css';
 const SESSION_USER_KEY = 'ledger_logged_in_user';
 
 function App() {
-  const [view, setView] = useState('home'); // 'home' | 'list' | 'ledger' | 'settings'
+  const [view, setView] = useState('home'); // 'home' | 'list' | 'ledger' | 'settings' | 'inventory'
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [autoOpenForm, setAutoOpenForm] = useState(false);
   const [businessName, setBusinessName] = useState('');
@@ -139,10 +140,12 @@ function App() {
           <Home
             onViewLedgers={() => { setAutoOpenForm(false); setView('list'); }}
             onCreateCustomer={() => { setAutoOpenForm(true); setView('list'); }}
+            onOpenInventory={() => setView('inventory')}
           />
         )}
         {view === 'list' && <CustomerList onOpenCustomer={openCustomer} autoOpenForm={autoOpenForm} />}
         {view === 'ledger' && selectedCustomerId && <CustomerLedger customerId={selectedCustomerId} />}
+        {view === 'inventory' && <Inventory />}
       </main>
     </div>
   );

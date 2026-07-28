@@ -54,6 +54,18 @@ export const deleteUser = (username) => api.delete(`/auth/users/${encodeURICompo
 export const getSecurityQuestion = (username) => api.get('/auth/security-question', { params: { username } }).then((r) => r.data);
 export const resetPassword = (data) => api.post('/auth/reset-password', data).then((r) => r.data);
 
+export const getItems = () => api.get('/items').then((r) => r.data);
+export const createItem = (data) => api.post('/items', data).then((r) => r.data);
+export const updateItem = (id, data) => api.put(`/items/${id}`, data).then((r) => r.data);
+export const deleteItem = (id) => api.delete(`/items/${id}`).then((r) => r.data);
+export const restockItem = (id, data) => api.post(`/items/${id}/restock`, data).then((r) => r.data);
+export const seedDefaultItems = () => api.post('/items/seed-defaults').then((r) => r.data);
+
+export const getOrders = () => api.get('/orders').then((r) => r.data);
+export const createOrder = (data) => api.post('/orders', data).then((r) => r.data);
+export const receiveOrder = (id) => api.post(`/orders/${id}/receive`).then((r) => r.data);
+export const deleteOrder = (id) => api.delete(`/orders/${id}`).then((r) => r.data);
+
 export const ledgerPdfUrl = (customerId) => `${API_ORIGIN}/api/ledger/${customerId}/pdf`;
 export const fileUrl = (path) => `${API_ORIGIN}${path}`;
 

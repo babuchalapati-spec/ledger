@@ -1,4 +1,4 @@
-export default function Home({ onViewLedgers, onCreateCustomer }) {
+export default function Home({ onViewLedgers, onCreateCustomer, onOpenInventory }) {
   return (
     <div className="home-screen">
       <h2>What would you like to do?</h2>
@@ -12,6 +12,11 @@ export default function Home({ onViewLedgers, onCreateCustomer }) {
           <span className="home-card-icon">➕</span>
           <span className="home-card-title">Create New Customer</span>
           <span className="home-card-desc">Add a new customer with their name, address and GST number</span>
+        </button>
+        <button className="home-card" onClick={onOpenInventory}>
+          <span className="home-card-icon">📦</span>
+          <span className="home-card-title">Grocery Inventory & Orders</span>
+          <span className="home-card-desc">Track home grocery stock (kg, g, litres, pieces) and place orders to restock items</span>
         </button>
       </div>
     </div>

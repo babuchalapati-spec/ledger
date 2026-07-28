@@ -174,7 +174,7 @@ export default function OrderBuilder() {
                   <th>Item</th>
                   <th>Quantity</th>
                   <th>Unit</th>
-                  <th className="num">Rate</th>
+                  <th className="num">MRP</th>
                   <th className="num">Line Total</th>
                   <th></th>
                 </tr>

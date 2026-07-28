@@ -38,3 +38,9 @@ export const factorFor = (unitType, label) => {
   const opt = unitOptionsFor(unitType).find((o) => o.label === label);
   return opt ? opt.factor : 1;
 };
+
+// The unit option that equals exactly 1 standard unit (1 kg / 1 litre / 1 pc)
+export const baseUnitLabelFor = (unitType) => {
+  const opt = unitOptionsFor(unitType).find((o) => o.factor === 1);
+  return opt ? opt.label : unitOptionsFor(unitType)[0]?.label;
+};

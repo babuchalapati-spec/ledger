@@ -4,7 +4,7 @@ const COLS = [
   { key: 'item', label: 'Item', width: 210 },
   { key: 'qty', label: 'Qty', width: 60 },
   { key: 'unit', label: 'Unit', width: 90 },
-  { key: 'rate', label: 'Rate', width: 65 },
+  { key: 'rate', label: 'MRP', width: 65 },
   { key: 'amount', label: 'Amount', width: 65 },
 ];
 

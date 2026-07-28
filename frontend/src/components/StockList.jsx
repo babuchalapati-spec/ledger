@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useState } from 'react';
-import { getItems, createItem, updateItem, deleteItem, restockItem, seedDefaultItems } from '../api/client';
-import { unitOptionsFor, standardUnitFor } from '../utils/units';
+import { getItems, createItem, updateItem, deleteItem, restockItem, seedDefaultItems, createOrder, orderPdfUrl } from '../api/client';
+import { unitOptionsFor, standardUnitFor, baseUnitLabelFor } from '../utils/units';
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
 
 const emptyForm = {
   name: '', nameTelugu: '', category: 'General', unitType: 'weight',
@@ -17,6 +19,8 @@ export default function StockList() {
   const [restockFor, setRestockFor] = useState(null);
   const [restockForm, setRestockForm] = useState({ quantity: '', unitLabel: '' });
   const [seeding, setSeeding] = useState(false);
+  const [orderQty, setOrderQty] = useState({});
+  const [generatingOrder, setGeneratingOrder] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -110,6 +114,36 @@ export default function StockList() {
     }
   };
 
+  const selectedForOrder = items.filter((item) => Number(orderQty[item._id]) > 0);
+
+  const handleGenerateOrderPdf = async () => {
+    if (selectedForOrder.length === 0) {
+      setError('Enter a quantity next to at least one item to generate an order');
+      return;
+    }
+    setGeneratingOrder(true);
+    setError('');
+    try {
+      const order = await createOrder({
+        date: todayStr(),
+        orderedFor: '',
+        notes: 'Generated from Stock page',
+        items: selectedForOrder.map((item) => ({
+          itemId: item._id,
+          unitLabel: baseUnitLabelFor(item.unitType),
+          quantity: Number(orderQty[item._id]),
+          rate: item.pricePerUnit,
+        })),
+      });
+      setOrderQty({});
+      window.open(orderPdfUrl(order._id), '_blank');
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+    } finally {
+      setGeneratingOrder(false);
+    }
+  };
+
   const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
   const grouped = items.reduce((acc, item) => {
@@ -126,6 +160,9 @@ export default function StockList() {
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn-secondary" onClick={handleSeed} disabled={seeding}>
             {seeding ? 'Loading...' : '📥 Load Default Grocery Items'}
+          </button>
+          <button className="btn-secondary" onClick={handleGenerateOrderPdf} disabled={generatingOrder || selectedForOrder.length === 0}>
+            {generatingOrder ? 'Generating...' : `🧾 Generate Order PDF${selectedForOrder.length ? ` (${selectedForOrder.length})` : ''}`}
           </button>
           <button className="btn-primary" onClick={() => (showForm ? resetForm() : (setShowForm(true), setRestockFor(null)))}>
             {showForm ? 'Cancel' : '+ New Item'}
@@ -188,6 +225,7 @@ export default function StockList() {
                     <th>Item</th>
                     <th className="num">Stock</th>
                     <th className="num">Price</th>
+                    <th className="num">Order Qty</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -203,6 +241,14 @@ export default function StockList() {
                           </td>
                           <td className="num">{fmt(item.stockQty)} {standardUnitFor(item.unitType)}</td>
                           <td className="num">Rs. {fmt(item.pricePerUnit)}/{standardUnitFor(item.unitType)}</td>
+                          <td className="num">
+                            <input
+                              type="number" min="0" step="0.5" style={{ width: 70, textAlign: 'right' }}
+                              placeholder={standardUnitFor(item.unitType)}
+                              value={orderQty[item._id] || ''}
+                              onChange={(e) => setOrderQty({ ...orderQty, [item._id]: e.target.value })}
+                            />
+                          </td>
                           <td className="edit-actions">
                             <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => startRestock(item)}>+ Restock</button>
                             <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => startEdit(item)}>Edit</button>
@@ -211,7 +257,7 @@ export default function StockList() {
                         </tr>
                         {restockFor === item._id && (
                           <tr className="editing-row">
-                            <td colSpan={4}>
+                            <td colSpan={5}>
                               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                                 <span>Add stock:</span>
                                 <input

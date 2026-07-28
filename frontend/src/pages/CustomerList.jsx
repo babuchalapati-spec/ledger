@@ -109,8 +109,8 @@ export default function CustomerList({ onOpenCustomer, autoOpenForm }) {
           <label>
             Opening Balance Type
             <select value={form.openingBalanceType} onChange={(e) => setForm({ ...form, openingBalanceType: e.target.value })}>
-              <option value="due">Customer Owes Me (Credit)</option>
-              <option value="advance">Advance Paid by Customer (Debit)</option>
+              <option value="due">Cr - Customer Owes Me</option>
+              <option value="advance">Dr - Advance Paid by Customer</option>
             </select>
           </label>
           <label>

@@ -45,9 +45,6 @@ function generateOrderPdf({ order, business, plain }, res) {
   doc.fontSize(18).font('Helvetica-Bold').text(plain ? 'SHOPPING LIST' : 'GROCERY ORDER', left, doc.y, { align: 'center', width: tableWidth });
   doc.moveDown(0.7);
   doc.fontSize(11).font('Helvetica-Bold').text('Order Date: ', left, doc.y, { continued: true }).font('Helvetica').text(fmtDate(order.date));
-  if (order.deliveryDate) {
-    doc.font('Helvetica-Bold').text('Delivery Date: ', left, doc.y, { continued: true }).font('Helvetica').text(fmtDate(order.deliveryDate));
-  }
   doc.font('Helvetica-Bold').text('Ordered For: ', left, doc.y, { continued: true }).font('Helvetica').text(order.orderedFor || '-');
   doc.font('Helvetica-Bold').text('Notes: ', left, doc.y, { continued: true }).font('Helvetica').text(order.notes || '-');
   if (!plain) {

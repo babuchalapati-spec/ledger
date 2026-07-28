@@ -1,44 +1,50 @@
 import { useEffect, useState } from 'react';
-import { getOrders, receiveOrder, updateOrder } from '../api/client';
+import { getDeliveries, markDelivered, updateDelivery } from '../api/client';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const dateOnly = (d) => new Date(d).toISOString().slice(0, 10);
 
+const toDatetimeLocal = (d) => {
+  const dt = new Date(d);
+  dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+  return dt.toISOString().slice(0, 16);
+};
+
 export default function DeliveryReminder() {
-  const [dueOrders, setDueOrders] = useState([]);
+  const [dueDeliveries, setDueDeliveries] = useState([]);
   const [dismissed, setDismissed] = useState(false);
   const [rescheduleFor, setRescheduleFor] = useState(null);
-  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('');
 
   const load = () => {
-    getOrders()
-      .then((orders) => {
+    getDeliveries()
+      .then((deliveries) => {
         const today = todayStr();
-        const due = orders.filter((o) => o.status === 'pending' && o.deliveryDate && dateOnly(o.deliveryDate) <= today);
-        setDueOrders(due);
+        const due = deliveries.filter((d) => d.status === 'pending' && dateOnly(d.deliveryTime) <= today);
+        setDueDeliveries(due);
       })
       .catch(() => {});
   };
 
   useEffect(load, []);
 
-  if (dismissed || dueOrders.length === 0) return null;
+  if (dismissed || dueDeliveries.length === 0) return null;
 
-  const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN');
+  const fmtDateTime = (d) => new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const isOverdue = (d) => dateOnly(d) < todayStr();
 
-  const handleReceive = async (id) => {
-    await receiveOrder(id);
+  const handleDeliver = async (id) => {
+    await markDelivered(id);
     load();
   };
 
-  const startReschedule = (o) => {
-    setRescheduleFor(o._id);
-    setRescheduleDate(todayStr());
+  const startReschedule = (d) => {
+    setRescheduleFor(d._id);
+    setRescheduleTime(toDatetimeLocal(new Date()));
   };
 
   const submitReschedule = async (id) => {
-    await updateOrder(id, { deliveryDate: rescheduleDate });
+    await updateDelivery(id, { deliveryTime: rescheduleTime });
     setRescheduleFor(null);
     load();
   };
@@ -47,34 +53,32 @@ export default function DeliveryReminder() {
     <div className="reminder-overlay">
       <div className="reminder-modal">
         <div className="reminder-header">
-          <h3>📦 Today's Deliveries</h3>
+          <h3>🚚 Today's Deliveries</h3>
           <button className="btn-link" onClick={() => setDismissed(true)}>✕</button>
         </div>
         <p className="muted" style={{ marginTop: -6, marginBottom: 14 }}>
-          Orders due for delivery today or earlier. Mark them received, or reschedule if delayed.
+          Deliveries due today or earlier. Mark them delivered, or reschedule if delayed.
         </p>
         <div className="reminder-list">
-          {dueOrders.map((o) => (
-            <div key={o._id} className="reminder-item">
+          {dueDeliveries.map((d) => (
+            <div key={d._id} className="reminder-item">
               <div className="reminder-item-info">
-                <div className={`reminder-date ${isOverdue(o.deliveryDate) ? 'overdue' : ''}`}>
-                  {isOverdue(o.deliveryDate) ? '⚠ Overdue: ' : 'Due: '}{fmtDate(o.deliveryDate)}
+                <div className={`reminder-date ${isOverdue(d.deliveryTime) ? 'overdue' : ''}`}>
+                  {isOverdue(d.deliveryTime) ? '⚠ Overdue: ' : 'Due: '}{fmtDateTime(d.deliveryTime)}
                 </div>
-                <div className="reminder-items-summary">
-                  {o.items.map((it) => `${it.name} (${it.quantity} x ${it.unitLabel})`).join(', ')}
-                </div>
-                {o.orderedFor && <div className="muted">For: {o.orderedFor}</div>}
+                <div className="reminder-items-summary">{d.items}</div>
+                {d.notes && <div className="muted">{d.notes}</div>}
               </div>
-              {rescheduleFor === o._id ? (
+              {rescheduleFor === d._id ? (
                 <div className="reminder-actions">
-                  <input type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)} />
-                  <button className="btn-primary" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => submitReschedule(o._id)}>Save</button>
+                  <input type="datetime-local" value={rescheduleTime} onChange={(e) => setRescheduleTime(e.target.value)} />
+                  <button className="btn-primary" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => submitReschedule(d._id)}>Save</button>
                   <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setRescheduleFor(null)}>Cancel</button>
                 </div>
               ) : (
                 <div className="reminder-actions">
-                  <button className="btn-primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => handleReceive(o._id)}>✓ Mark Received</button>
-                  <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => startReschedule(o)}>📅 Reschedule</button>
+                  <button className="btn-primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => handleDeliver(d._id)}>✓ Mark Delivered</button>
+                  <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => startReschedule(d)}>📅 Reschedule</button>
                 </div>
               )}
             </div>

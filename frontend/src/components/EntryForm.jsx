@@ -63,14 +63,14 @@ export default function EntryForm({ customerId, onAdded }) {
           className={`type-btn type-btn-bill ${form.type === 'bill' ? 'active' : ''}`}
           onClick={() => setForm({ ...form, type: 'bill' })}
         >
-          🧾 Bill / Purchase <span>(Credit)</span>
+          🧾 Bill / Purchase <span>(Cr)</span>
         </button>
         <button
           type="button"
           className={`type-btn type-btn-payment ${form.type === 'payment' ? 'active' : ''}`}
           onClick={() => setForm({ ...form, type: 'payment' })}
         >
-          💵 Payment Received <span>(Debit)</span>
+          💵 Payment Received <span>(Dr)</span>
         </button>
       </div>
 

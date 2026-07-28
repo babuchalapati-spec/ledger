@@ -1,8 +1,5 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
-import {
-  getItems, createOrder, updateOrder, getOrders, receiveOrder, deleteOrder,
-  uploadOrderInvoice, orderViewUrl, shoppingListDownloadUrl, fileUrl,
-} from '../api/client';
+import { useEffect, useMemo, useState } from 'react';
+import { getItems, createOrder, getOrders, receiveOrder, deleteOrder, orderViewUrl, shoppingListDownloadUrl } from '../api/client';
 import { unitOptionsFor, factorFor } from '../utils/units';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -14,17 +11,10 @@ export default function OrderBuilder() {
   const [category, setCategory] = useState('All');
   const [rows, setRows] = useState([]); // { itemId, unitLabel, quantity, rate }
   const [date, setDate] = useState(todayStr());
-  const [deliveryDate, setDeliveryDate] = useState('');
   const [orderedFor, setOrderedFor] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const [rescheduleFor, setRescheduleFor] = useState(null);
-  const [rescheduleDate, setRescheduleDate] = useState('');
-  const [invoiceFor, setInvoiceFor] = useState(null);
-  const [invoiceFiles, setInvoiceFiles] = useState([]);
-  const [uploadingInvoice, setUploadingInvoice] = useState(false);
 
   const load = () => {
     getItems().then(setItems).catch(() => {});
@@ -84,13 +74,11 @@ export default function OrderBuilder() {
     try {
       await createOrder({
         date,
-        deliveryDate: deliveryDate || undefined,
         orderedFor,
         notes,
         items: rows.map((r) => ({ itemId: r.itemId, unitLabel: r.unitLabel, quantity: Number(r.quantity), rate: Number(r.rate) })),
       });
       setRows([]);
-      setDeliveryDate('');
       setOrderedFor('');
       setNotes('');
       load();
@@ -112,40 +100,6 @@ export default function OrderBuilder() {
     load();
   };
 
-  const startReschedule = (order) => {
-    setRescheduleFor(order._id);
-    setRescheduleDate(order.deliveryDate ? new Date(order.deliveryDate).toISOString().slice(0, 10) : todayStr());
-    setInvoiceFor(null);
-  };
-
-  const submitReschedule = async (id) => {
-    await updateOrder(id, { deliveryDate: rescheduleDate });
-    setRescheduleFor(null);
-    load();
-  };
-
-  const startInvoice = (order) => {
-    setInvoiceFor(order._id);
-    setInvoiceFiles([]);
-    setRescheduleFor(null);
-  };
-
-  const submitInvoice = async (id) => {
-    if (invoiceFiles.length === 0) return;
-    setUploadingInvoice(true);
-    try {
-      const fd = new FormData();
-      invoiceFiles.forEach((f) => fd.append('invoiceDocuments', f));
-      await uploadOrderInvoice(id, fd);
-      setInvoiceFiles([]);
-      load();
-    } catch (err) {
-      setError(err.response?.data?.error || err.message);
-    } finally {
-      setUploadingInvoice(false);
-    }
-  };
-
   const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
   const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN');
 
@@ -159,10 +113,6 @@ export default function OrderBuilder() {
           <label>
             Order Date
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
-          <label>
-            Delivery Date (optional)
-            <input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
           </label>
           <label>
             Ordered For (optional)
@@ -288,7 +238,6 @@ export default function OrderBuilder() {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Delivery</th>
                 <th>Items</th>
                 <th>Ordered For</th>
                 <th className="num">Total</th>
@@ -298,60 +247,21 @@ export default function OrderBuilder() {
             </thead>
             <tbody>
               {orders.map((o) => (
-                <Fragment key={o._id}>
-                  <tr>
-                    <td>{fmtDate(o.date)}</td>
-                    <td>{o.deliveryDate ? fmtDate(o.deliveryDate) : '-'}</td>
-                    <td>{o.items.map((it) => `${it.name} (${it.quantity} x ${it.unitLabel})`).join(', ')}</td>
-                    <td>{o.orderedFor || '-'}</td>
-                    <td className="num">Rs. {fmt(o.totalAmount)}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{o.status}</td>
-                    <td className="edit-actions">
-                      <a className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} href={orderViewUrl(o._id)} target="_blank" rel="noreferrer">👁 View</a>
-                      <a className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} href={shoppingListDownloadUrl(o._id)} target="_blank" rel="noreferrer">📋 Item List</a>
-                      <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => startReschedule(o)}>📅 Reschedule</button>
-                      <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => startInvoice(o)}>📎 Invoice{o.invoiceDocuments?.length ? ` (${o.invoiceDocuments.length})` : ''}</button>
-                      {o.status === 'pending' && (
-                        <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleReceive(o._id)}>Mark Received</button>
-                      )}
-                      <button className="btn-danger-sm" onClick={() => handleDelete(o._id)}>Delete</button>
-                    </td>
-                  </tr>
-                  {rescheduleFor === o._id && (
-                    <tr className="editing-row">
-                      <td colSpan={7}>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <span>Delivery date:</span>
-                          <input type="date" value={rescheduleDate} onChange={(e) => setRescheduleDate(e.target.value)} />
-                          <button className="btn-primary" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => submitReschedule(o._id)}>Save</button>
-                          <button className="btn-secondary" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setRescheduleFor(null)}>Cancel</button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                  {invoiceFor === o._id && (
-                    <tr className="editing-row">
-                      <td colSpan={7}>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <span>Attach invoice:</span>
-                          <input
-                            type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf"
-                            onChange={(e) => setInvoiceFiles(Array.from(e.target.files))}
-                          />
-                          <button className="btn-primary" style={{ padding: '5px 12px', fontSize: 12 }} disabled={uploadingInvoice || invoiceFiles.length === 0} onClick={() => submitInvoice(o._id)}>
-                            {uploadingInvoice ? 'Uploading...' : 'Upload'}
-                          </button>
-                          <button className="btn-secondary" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => setInvoiceFor(null)}>Close</button>
-                          {o.invoiceDocuments?.map((d, i) => (
-                            <a key={i} href={fileUrl(d.path)} target="_blank" rel="noreferrer" className="doc-link">
-                              {d.mimeType === 'application/pdf' ? 'PDF' : 'Photo'} {i + 1}
-                            </a>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+                <tr key={o._id}>
+                  <td>{fmtDate(o.date)}</td>
+                  <td>{o.items.map((it) => `${it.name} (${it.quantity} x ${it.unitLabel})`).join(', ')}</td>
+                  <td>{o.orderedFor || '-'}</td>
+                  <td className="num">Rs. {fmt(o.totalAmount)}</td>
+                  <td style={{ textTransform: 'capitalize' }}>{o.status}</td>
+                  <td className="edit-actions">
+                    <a className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} href={orderViewUrl(o._id)} target="_blank" rel="noreferrer">👁 View</a>
+                    <a className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} href={shoppingListDownloadUrl(o._id)} target="_blank" rel="noreferrer">📋 Item List</a>
+                    {o.status === 'pending' && (
+                      <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleReceive(o._id)}>Mark Received</button>
+                    )}
+                    <button className="btn-danger-sm" onClick={() => handleDelete(o._id)}>Delete</button>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>

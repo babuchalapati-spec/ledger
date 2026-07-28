@@ -83,8 +83,8 @@ export default function CustomerLedger({ customerId }) {
           <label>
             Opening Balance Type
             <select value={editForm.openingBalanceType} onChange={(e) => setEditForm({ ...editForm, openingBalanceType: e.target.value })}>
-              <option value="due">Customer Owes Me (Credit)</option>
-              <option value="advance">Advance Paid by Customer (Debit)</option>
+              <option value="due">Cr - Customer Owes Me</option>
+              <option value="advance">Dr - Advance Paid by Customer</option>
             </select>
           </label>
           <label>
@@ -105,7 +105,7 @@ export default function CustomerLedger({ customerId }) {
           {!!customer.openingBalance && (
             <div>
               <span className="label">Opening Balance:</span> Rs. {Number(Math.abs(customer.openingBalance)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              {' '}({customer.openingBalance < 0 ? 'Advance paid' : 'Customer owed'})
+              {' '}({customer.openingBalance < 0 ? 'Dr' : 'Cr'})
             </div>
           )}
         </div>

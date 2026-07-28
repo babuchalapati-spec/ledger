@@ -13,6 +13,7 @@ const settingsRoutes = require('./routes/settings');
 const authRoutes = require('./routes/auth');
 const itemRoutes = require('./routes/items');
 const orderRoutes = require('./routes/orders');
+const deliveryRoutes = require('./routes/deliveries');
 
 const app = express();
 const PORT = process.env.PORT || 8811;
@@ -29,6 +30,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/deliveries', deliveryRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

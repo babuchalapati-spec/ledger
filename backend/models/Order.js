@@ -14,19 +14,12 @@ const orderItemSchema = new mongoose.Schema({
 
 const orderSchema = new mongoose.Schema({
   date: { type: Date, required: true, default: Date.now },
-  deliveryDate: { type: Date },
   orderedFor: { type: String, trim: true, default: '' },
   notes: { type: String, trim: true, default: '' },
   items: { type: [orderItemSchema], required: true },
   totalAmount: { type: Number, required: true, min: 0 },
   status: { type: String, enum: ['pending', 'received'], default: 'pending' },
   receivedAt: { type: Date },
-  invoiceDocuments: [{
-    filename: String,
-    originalName: String,
-    path: String,
-    mimeType: String,
-  }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);

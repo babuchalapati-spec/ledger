@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getItems, createOrder, getOrders, receiveOrder, deleteOrder } from '../api/client';
+import { getItems, createOrder, getOrders, receiveOrder, deleteOrder, orderPdfUrl } from '../api/client';
 import { unitOptionsFor, factorFor } from '../utils/units';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -8,7 +8,8 @@ export default function OrderBuilder() {
   const [items, setItems] = useState([]);
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState('');
-  const [rows, setRows] = useState([]); // { itemId, unitLabel, quantity }
+  const [category, setCategory] = useState('All');
+  const [rows, setRows] = useState([]); // { itemId, unitLabel, quantity, rate }
   const [date, setDate] = useState(todayStr());
   const [orderedFor, setOrderedFor] = useState('');
   const [notes, setNotes] = useState('');
@@ -22,17 +23,32 @@ export default function OrderBuilder() {
 
   useEffect(load, []);
 
-  const filteredItems = useMemo(() => {
+  const categories = useMemo(() => {
+    const set = new Set(items.map((i) => i.category || 'General'));
+    return ['All', ...Array.from(set).sort()];
+  }, [items]);
+
+  const catalogItems = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return [];
-    return items.filter(
-      (i) => i.name.toLowerCase().includes(q) || (i.nameTelugu || '').includes(search.trim())
-    );
-  }, [items, search]);
+    if (q) {
+      return items.filter(
+        (i) => i.name.toLowerCase().includes(q) || (i.nameTelugu || '').includes(search.trim())
+      );
+    }
+    if (category === 'All') return items;
+    return items.filter((i) => (i.category || 'General') === category);
+  }, [items, search, category]);
+
+  const inCart = (itemId) => rows.some((r) => r.itemId === itemId);
 
   const addRow = (item) => {
-    if (rows.some((r) => r.itemId === item._id)) return;
-    setRows([...rows, { itemId: item._id, unitLabel: unitOptionsFor(item.unitType)[0].label, quantity: 1 }]);
+    if (inCart(item._id)) return;
+    setRows([...rows, {
+      itemId: item._id,
+      unitLabel: unitOptionsFor(item.unitType)[0].label,
+      quantity: 1,
+      rate: item.pricePerUnit,
+    }]);
   };
 
   const removeRow = (itemId) => setRows(rows.filter((r) => r.itemId !== itemId));
@@ -42,7 +58,7 @@ export default function OrderBuilder() {
   const lineTotal = (row) => {
     const item = itemById(row.itemId);
     if (!item) return 0;
-    return (Number(row.quantity) || 0) * factorFor(item.unitType, row.unitLabel) * item.pricePerUnit;
+    return (Number(row.quantity) || 0) * factorFor(item.unitType, row.unitLabel) * (Number(row.rate) || 0);
   };
 
   const total = rows.reduce((s, r) => s + lineTotal(r), 0);
@@ -52,6 +68,7 @@ export default function OrderBuilder() {
     if (rows.length === 0) return setError('Add at least one item to the order');
     for (const r of rows) {
       if (!(Number(r.quantity) > 0)) return setError('Enter a valid quantity for every item');
+      if (!(Number(r.rate) >= 0)) return setError('Enter a valid rate for every item');
     }
     setSaving(true);
     try {
@@ -59,7 +76,7 @@ export default function OrderBuilder() {
         date,
         orderedFor,
         notes,
-        items: rows.map((r) => ({ itemId: r.itemId, unitLabel: r.unitLabel, quantity: Number(r.quantity) })),
+        items: rows.map((r) => ({ itemId: r.itemId, unitLabel: r.unitLabel, quantity: Number(r.quantity), rate: Number(r.rate) })),
       });
       setRows([]);
       setOrderedFor('');
@@ -117,21 +134,37 @@ export default function OrderBuilder() {
           />
         </label>
 
-        {search && (
-          <div className="item-picker">
-            {filteredItems.slice(0, 8).map((item) => (
+        {!search && (
+          <div className="category-pills">
+            {categories.map((c) => (
               <button
                 type="button"
-                key={item._id}
-                className="item-pick-btn"
-                onClick={() => { addRow(item); setSearch(''); }}
+                key={c}
+                className={`category-pill ${category === c ? 'active' : ''}`}
+                onClick={() => setCategory(c)}
               >
-                {item.name}{item.nameTelugu ? ` / ${item.nameTelugu}` : ''}
+                {c}
               </button>
             ))}
-            {filteredItems.length === 0 && <p className="muted">No matching items in your inventory.</p>}
           </div>
         )}
+
+        <div className="item-catalog">
+          {catalogItems.length === 0 && <p className="muted">No matching items in your inventory.</p>}
+          {catalogItems.map((item) => (
+            <div key={item._id} className="catalog-card">
+              <div className="catalog-card-name">
+                {item.name}{item.nameTelugu ? <span className="muted"> / {item.nameTelugu}</span> : ''}
+              </div>
+              <div className="catalog-card-price">Rs. {fmt(item.pricePerUnit)}</div>
+              {inCart(item._id) ? (
+                <button type="button" className="btn-secondary catalog-added" disabled>✓ In Cart</button>
+              ) : (
+                <button type="button" className="btn-primary catalog-add-btn" onClick={() => addRow(item)}>+ Add</button>
+              )}
+            </div>
+          ))}
+        </div>
 
         {rows.length > 0 && (
           <div className="table-wrap" style={{ marginTop: 16 }}>
@@ -141,6 +174,7 @@ export default function OrderBuilder() {
                   <th>Item</th>
                   <th>Quantity</th>
                   <th>Unit</th>
+                  <th className="num">Rate</th>
                   <th className="num">Line Total</th>
                   <th></th>
                 </tr>
@@ -154,7 +188,7 @@ export default function OrderBuilder() {
                       <td>{item.name}{item.nameTelugu ? ` / ${item.nameTelugu}` : ''}</td>
                       <td>
                         <input
-                          type="number" min="0" step="0.5" style={{ width: 80 }}
+                          type="number" min="0" step="0.5" style={{ width: 70 }}
                           value={r.quantity}
                           onChange={(e) => updateRow(r.itemId, { quantity: e.target.value })}
                         />
@@ -166,6 +200,13 @@ export default function OrderBuilder() {
                           ))}
                         </select>
                       </td>
+                      <td className="num">
+                        <input
+                          type="number" min="0" step="0.01" style={{ width: 80, textAlign: 'right' }}
+                          value={r.rate}
+                          onChange={(e) => updateRow(r.itemId, { rate: e.target.value })}
+                        />
+                      </td>
                       <td className="num">Rs. {fmt(lineTotal(r))}</td>
                       <td><button className="btn-danger-sm" onClick={() => removeRow(r.itemId)}>Remove</button></td>
                     </tr>
@@ -174,7 +215,7 @@ export default function OrderBuilder() {
               </tbody>
               <tfoot>
                 <tr className="totals-row">
-                  <td colSpan={3}>TOTAL</td>
+                  <td colSpan={4}>TOTAL</td>
                   <td className="num">Rs. {fmt(total)}</td>
                   <td></td>
                 </tr>
@@ -213,6 +254,7 @@ export default function OrderBuilder() {
                   <td className="num">Rs. {fmt(o.totalAmount)}</td>
                   <td style={{ textTransform: 'capitalize' }}>{o.status}</td>
                   <td className="edit-actions">
+                    <a className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} href={orderPdfUrl(o._id)} target="_blank" rel="noreferrer">📄 PDF</a>
                     {o.status === 'pending' && (
                       <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleReceive(o._id)}>Mark Received</button>
                     )}

@@ -486,31 +486,79 @@ h3 {
   padding: 2px 6px;
 }
 
-.item-picker {
+.category-pills {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.category-pill {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-h);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.category-pill:hover {
+  border-color: var(--brand);
+}
+
+.category-pill.active {
+  background: var(--brand);
+  border-color: var(--brand-dark);
+  color: #fff;
+}
+
+.item-catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  background: var(--surface-alt);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.catalog-card {
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px;
-  background: var(--surface-alt);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.item-pick-btn {
-  text-align: left;
-  padding: 9px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 14px;
-  cursor: pointer;
+.catalog-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+  line-height: 1.4;
 }
 
-.item-pick-btn:hover {
-  border-color: var(--brand);
-  background: var(--brand-light);
+.catalog-card-price {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.catalog-add-btn, .catalog-added {
+  padding: 6px 10px;
+  font-size: 12px;
+  width: 100%;
+  text-align: center;
+}
+
+.catalog-added {
+  color: var(--advance);
+  font-weight: 700;
 }
 
 .network-address {

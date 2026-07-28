@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
 const Item = require('../models/Item');
+const Settings = require('../models/Settings');
 const { factorFor } = require('../utils/units');
+const { generateOrderPdf } = require('../utils/generateOrderPdf');
 
 // List all orders, most recent first
 router.get('/', async (req, res) => {
@@ -35,7 +37,11 @@ router.post('/', async (req, res) => {
       if (!(quantity > 0)) return res.status(400).json({ error: `Enter a valid quantity for ${item.name}` });
 
       const qtyStandard = quantity * factor;
-      const lineTotal = qtyStandard * item.pricePerUnit;
+      const rateOverride = Number(line.rate);
+      const pricePerUnit = line.rate !== undefined && line.rate !== null && line.rate !== '' && rateOverride >= 0
+        ? rateOverride
+        : item.pricePerUnit;
+      const lineTotal = qtyStandard * pricePerUnit;
 
       lineItems.push({
         item: item._id,
@@ -45,7 +51,7 @@ router.post('/', async (req, res) => {
         unitLabel: line.unitLabel,
         quantity,
         qtyStandard,
-        pricePerUnit: item.pricePerUnit,
+        pricePerUnit,
         lineTotal,
       });
     }
@@ -62,6 +68,23 @@ router.post('/', async (req, res) => {
     });
 
     res.status(201).json(order);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Download a PDF copy of an order
+router.get('/:id/pdf', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id).lean();
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    const business = await Settings.findOne().lean();
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="order-${new Date(order.date).toISOString().slice(0, 10)}.pdf"`);
+
+    generateOrderPdf({ order, business }, res);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

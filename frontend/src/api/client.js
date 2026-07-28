@@ -65,6 +65,7 @@ export const getOrders = () => api.get('/orders').then((r) => r.data);
 export const createOrder = (data) => api.post('/orders', data).then((r) => r.data);
 export const receiveOrder = (id) => api.post(`/orders/${id}/receive`).then((r) => r.data);
 export const deleteOrder = (id) => api.delete(`/orders/${id}`).then((r) => r.data);
+export const orderPdfUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf`;
 
 export const ledgerPdfUrl = (customerId) => `${API_ORIGIN}/api/ledger/${customerId}/pdf`;
 export const fileUrl = (path) => `${API_ORIGIN}${path}`;

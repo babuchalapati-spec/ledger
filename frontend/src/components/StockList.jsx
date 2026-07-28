@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import { getItems, createItem, updateItem, deleteItem, restockItem, seedDefaultItems, createOrder, orderPdfUrl } from '../api/client';
+import { getItems, createItem, updateItem, deleteItem, restockItem, seedDefaultItems, createOrder, orderViewUrl } from '../api/client';
 import { unitOptionsFor, standardUnitFor, baseUnitLabelFor } from '../utils/units';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -136,7 +136,7 @@ export default function StockList() {
         })),
       });
       setOrderQty({});
-      window.open(orderPdfUrl(order._id), '_blank');
+      window.open(orderViewUrl(order._id), '_blank');
     } catch (err) {
       setError(err.response?.data?.error || err.message);
     } finally {

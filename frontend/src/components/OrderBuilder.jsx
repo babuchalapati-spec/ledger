@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getItems, createOrder, getOrders, receiveOrder, deleteOrder, orderPdfUrl } from '../api/client';
+import { getItems, createOrder, getOrders, receiveOrder, deleteOrder, orderViewUrl, shoppingListDownloadUrl } from '../api/client';
 import { unitOptionsFor, factorFor } from '../utils/units';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -254,7 +254,8 @@ export default function OrderBuilder() {
                   <td className="num">Rs. {fmt(o.totalAmount)}</td>
                   <td style={{ textTransform: 'capitalize' }}>{o.status}</td>
                   <td className="edit-actions">
-                    <a className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} href={orderPdfUrl(o._id)} target="_blank" rel="noreferrer">📄 PDF</a>
+                    <a className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} href={orderViewUrl(o._id)} target="_blank" rel="noreferrer">👁 View</a>
+                    <a className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} href={shoppingListDownloadUrl(o._id)} target="_blank" rel="noreferrer">📋 Item List</a>
                     {o.status === 'pending' && (
                       <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleReceive(o._id)}>Mark Received</button>
                     )}

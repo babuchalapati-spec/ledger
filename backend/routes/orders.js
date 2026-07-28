@@ -73,18 +73,24 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Download a PDF copy of an order
+// PDF copy of an order. Query params:
+//   plain=1    -> plain item list (name/qty/unit only, no MRP/amount)
+//   download=1 -> force a file download instead of opening inline in the browser/webview
 router.get('/:id/pdf', async (req, res) => {
   try {
     const order = await Order.findById(req.params.id).lean();
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
     const business = await Settings.findOne().lean();
+    const plain = req.query.plain === '1';
+    const download = req.query.download === '1';
+    const filenamePrefix = plain ? 'shopping-list' : 'order';
+    const filename = `${filenamePrefix}-${new Date(order.date).toISOString().slice(0, 10)}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="order-${new Date(order.date).toISOString().slice(0, 10)}.pdf"`);
+    res.setHeader('Content-Disposition', `${download ? 'attachment' : 'inline'}; filename="${filename}"`);
 
-    generateOrderPdf({ order, business }, res);
+    generateOrderPdf({ order, business, plain }, res);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

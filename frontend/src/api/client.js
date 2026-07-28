@@ -63,8 +63,11 @@ export const seedDefaultItems = () => api.post('/items/seed-defaults').then((r) 
 
 export const getOrders = () => api.get('/orders').then((r) => r.data);
 export const createOrder = (data) => api.post('/orders', data).then((r) => r.data);
+export const updateOrder = (id, data) => api.put(`/orders/${id}`, data).then((r) => r.data);
 export const receiveOrder = (id) => api.post(`/orders/${id}/receive`).then((r) => r.data);
 export const deleteOrder = (id) => api.delete(`/orders/${id}`).then((r) => r.data);
+export const uploadOrderInvoice = (id, formData) =>
+  api.post(`/orders/${id}/invoice`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
 // view = open inline in the browser/webview; without it, the file downloads immediately
 export const orderViewUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf`;
 export const orderDownloadUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?download=1`;

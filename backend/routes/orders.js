@@ -1,10 +1,34 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const router = express.Router();
 const Order = require('../models/Order');
 const Item = require('../models/Item');
 const Settings = require('../models/Settings');
 const { factorFor } = require('../utils/units');
 const { generateOrderPdf } = require('../utils/generateOrderPdf');
+
+const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${unique}${path.extname(file.originalname)}`);
+  },
+});
+
+const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (allowedMimes.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Only JPG, PNG, WEBP images or PDF files are allowed'));
+  },
+});
 
 // List all orders, most recent first
 router.get('/', async (req, res) => {
@@ -20,7 +44,7 @@ router.get('/', async (req, res) => {
 // until the order is marked received.
 router.post('/', async (req, res) => {
   try {
-    const { date, orderedFor, notes, items } = req.body;
+    const { date, deliveryDate, orderedFor, notes, items } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Add at least one item to the order' });
     }
@@ -60,6 +84,7 @@ router.post('/', async (req, res) => {
 
     const order = await Order.create({
       date: date ? new Date(date) : new Date(),
+      deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined,
       orderedFor,
       notes,
       items: lineItems,
@@ -69,6 +94,48 @@ router.post('/', async (req, res) => {
 
     res.status(201).json(order);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reschedule the delivery date (or edit orderedFor/notes) of an existing order
+router.put('/:id', async (req, res) => {
+  try {
+    const { deliveryDate, orderedFor, notes } = req.body;
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    if (deliveryDate !== undefined) order.deliveryDate = deliveryDate ? new Date(deliveryDate) : undefined;
+    if (orderedFor !== undefined) order.orderedFor = orderedFor;
+    if (notes !== undefined) order.notes = notes;
+
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Attach an invoice (photo or PDF) to an order
+router.post('/:id/invoice', upload.array('invoiceDocuments', 5), async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      (req.files || []).forEach((f) => fs.existsSync(f.path) && fs.unlinkSync(f.path));
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const newDocs = (req.files || []).map((f) => ({
+      filename: f.filename,
+      originalName: f.originalname,
+      path: `/uploads/${f.filename}`,
+      mimeType: f.mimetype,
+    }));
+    order.invoiceDocuments.push(...newDocs);
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    (req.files || []).forEach((f) => fs.existsSync(f.path) && fs.unlinkSync(f.path));
     res.status(500).json({ error: err.message });
   }
 });
@@ -126,6 +193,10 @@ router.delete('/:id', async (req, res) => {
         await Item.findByIdAndUpdate(line.item, { $inc: { stockQty: -line.qtyStandard } });
       }
     }
+    order.invoiceDocuments.forEach((d) => {
+      const filePath = path.join(uploadDir, d.filename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    });
     await Order.findByIdAndDelete(req.params.id);
     res.json({ message: 'Order deleted' });
   } catch (err) {

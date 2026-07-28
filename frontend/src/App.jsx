@@ -3,6 +3,7 @@ import Home from './pages/Home';
 import CustomerList from './pages/CustomerList';
 import CustomerLedger from './pages/CustomerLedger';
 import Inventory from './pages/Inventory';
+import DeliveryReminder from './components/DeliveryReminder';
 import Settings from './pages/Settings';
 import ServerConnect from './pages/ServerConnect';
 import Login from './pages/Login';
@@ -109,6 +110,7 @@ function App() {
 
   return (
     <div className="app">
+      <DeliveryReminder />
       <header className="app-header">
         <h1 onClick={goHome} style={{ cursor: 'pointer' }}>
           {businessName || 'Ledger Records'}

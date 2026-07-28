@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { login, getSecurityQuestion, resetPassword } from '../api/client';
+import { login, getSecurityQuestion, resetPassword, setToken } from '../api/client';
 
-export default function Login({ onLoggedIn }) {
+export default function Login({ onLoggedIn, onSwitchToRegister }) {
   const [mode, setMode] = useState('login'); // 'login' | 'forgot'
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
 
-  const [forgotUsername, setForgotUsername] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
   const [question, setQuestion] = useState('');
   const [askedQuestion, setAskedQuestion] = useState(false);
   const [answer, setAnswer] = useState('');
@@ -21,10 +21,11 @@ export default function Login({ onLoggedIn }) {
     setError('');
     setChecking(true);
     try {
-      const result = await login(username, password);
-      onLoggedIn(result.username);
+      const result = await login(email, password);
+      setToken(result.token);
+      onLoggedIn(result.businessName, result.email);
     } catch (err) {
-      setError(err.response?.data?.error || 'Incorrect username or password');
+      setError(err.response?.data?.error || 'Incorrect email or password');
     } finally {
       setChecking(false);
     }
@@ -34,7 +35,7 @@ export default function Login({ onLoggedIn }) {
     setError('');
     setMode('forgot');
     setAskedQuestion(false);
-    setForgotUsername(username);
+    setForgotEmail(email);
   };
 
   const handleFindQuestion = async (e) => {
@@ -42,10 +43,10 @@ export default function Login({ onLoggedIn }) {
     setError('');
     setChecking(true);
     try {
-      const { question } = await getSecurityQuestion(forgotUsername);
+      const { question } = await getSecurityQuestion(forgotEmail);
       setQuestion(question);
       setAskedQuestion(true);
-      if (!question) setError('No account found with that username, or it has no recovery question set.');
+      if (!question) setError('No account found with that email, or it has no recovery question set.');
     } catch {
       setError('Could not look up that account.');
     } finally {
@@ -62,7 +63,7 @@ export default function Login({ onLoggedIn }) {
     }
     setChecking(true);
     try {
-      await resetPassword({ username: forgotUsername, securityAnswer: answer, newPassword });
+      await resetPassword({ email: forgotEmail, securityAnswer: answer, newPassword });
       setResetDone(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Could not reset password');
@@ -77,11 +78,11 @@ export default function Login({ onLoggedIn }) {
         {mode === 'login' && (
           <>
             <h2>🔒 Log In</h2>
-            <p className="muted">Enter your username and password to open the app.</p>
+            <p className="muted">Enter your email and password to open the app.</p>
             <form onSubmit={handleLogin} className="server-connect-form">
               <label>
-                Username
-                <input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+                Email
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
               </label>
               <label>
                 Password
@@ -92,6 +93,7 @@ export default function Login({ onLoggedIn }) {
                 {checking ? 'Checking...' : 'Log In'}
               </button>
               <button type="button" className="btn-link" onClick={openForgot}>Forgot password?</button>
+              <button type="button" className="btn-link" onClick={onSwitchToRegister}>Create a business account</button>
             </form>
           </>
         )}
@@ -102,8 +104,8 @@ export default function Login({ onLoggedIn }) {
             {!askedQuestion ? (
               <form onSubmit={handleFindQuestion} className="server-connect-form">
                 <label>
-                  Username
-                  <input value={forgotUsername} onChange={(e) => setForgotUsername(e.target.value)} autoFocus />
+                  Email
+                  <input type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} autoFocus />
                 </label>
                 {error && <div className="error-banner">{error}</div>}
                 <button className="btn-primary" type="submit" disabled={checking}>
@@ -143,11 +145,11 @@ export default function Login({ onLoggedIn }) {
         {mode === 'forgot' && resetDone && (
           <>
             <h2>✅ Password Reset</h2>
-            <p className="muted">The password for "{forgotUsername}" has been changed. You can now log in with the new password.</p>
+            <p className="muted">The password for "{forgotEmail}" has been changed. You can now log in with the new password.</p>
             <button
               className="btn-primary"
               style={{ marginTop: 12 }}
-              onClick={() => { setMode('login'); setResetDone(false); setUsername(forgotUsername); setPassword(''); }}
+              onClick={() => { setMode('login'); setResetDone(false); setEmail(forgotEmail); setPassword(''); }}
             >
               Back to login
             </button>

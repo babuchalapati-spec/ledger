@@ -3,7 +3,10 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const router = express.Router();
-const Delivery = require('../models/Delivery');
+const getDeliveryModel = require('../models/tenant/Delivery');
+const { requireAuth } = require('../middleware/auth');
+
+router.use(requireAuth);
 
 const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -29,6 +32,7 @@ const upload = multer({
 // List all deliveries, soonest due first
 router.get('/', async (req, res) => {
   try {
+    const Delivery = getDeliveryModel(req.tenantConn);
     const deliveries = await Delivery.find().sort({ deliveryTime: 1 });
     res.json(deliveries);
   } catch (err) {
@@ -39,6 +43,7 @@ router.get('/', async (req, res) => {
 // Create a delivery record: when it's due and what to deliver
 router.post('/', async (req, res) => {
   try {
+    const Delivery = getDeliveryModel(req.tenantConn);
     const { deliveryTime, items, notes } = req.body;
     if (!deliveryTime) return res.status(400).json({ error: 'Delivery time is required' });
     if (!items || !items.trim()) return res.status(400).json({ error: 'Please describe what needs to be delivered' });
@@ -57,6 +62,7 @@ router.post('/', async (req, res) => {
 // Update / reschedule a delivery
 router.put('/:id', async (req, res) => {
   try {
+    const Delivery = getDeliveryModel(req.tenantConn);
     const { deliveryTime, items, notes } = req.body;
     const delivery = await Delivery.findById(req.params.id);
     if (!delivery) return res.status(404).json({ error: 'Delivery not found' });
@@ -75,6 +81,7 @@ router.put('/:id', async (req, res) => {
 // Mark a delivery as delivered
 router.post('/:id/deliver', async (req, res) => {
   try {
+    const Delivery = getDeliveryModel(req.tenantConn);
     const delivery = await Delivery.findById(req.params.id);
     if (!delivery) return res.status(404).json({ error: 'Delivery not found' });
 
@@ -90,6 +97,7 @@ router.post('/:id/deliver', async (req, res) => {
 // Attach an invoice (photo or PDF) to a delivery
 router.post('/:id/invoice', upload.array('invoiceDocuments', 5), async (req, res) => {
   try {
+    const Delivery = getDeliveryModel(req.tenantConn);
     const delivery = await Delivery.findById(req.params.id);
     if (!delivery) {
       (req.files || []).forEach((f) => fs.existsSync(f.path) && fs.unlinkSync(f.path));
@@ -114,6 +122,7 @@ router.post('/:id/invoice', upload.array('invoiceDocuments', 5), async (req, res
 // Delete a delivery record (and its attached files)
 router.delete('/:id', async (req, res) => {
   try {
+    const Delivery = getDeliveryModel(req.tenantConn);
     const delivery = await Delivery.findByIdAndDelete(req.params.id);
     if (!delivery) return res.status(404).json({ error: 'Delivery not found' });
 

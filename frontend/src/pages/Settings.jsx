@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getUsers, createUser, deleteUser } from '../api/client';
+import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getAccountUsers, addAccountUser, deleteAccountUser } from '../api/client';
 
-const emptyUserForm = { username: '', password: '', confirmPassword: '', securityQuestion: '', securityAnswer: '' };
+const emptyUserForm = { email: '', password: '', confirmPassword: '', securityQuestion: '', securityAnswer: '' };
 
-export default function Settings({ onSaved, onChangeServer, onUsersChanged }) {
+export default function Settings({ onSaved, onChangeServer }) {
   const [form, setForm] = useState({ businessName: '', address: '', gstNumber: '', phone: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -18,12 +18,7 @@ export default function Settings({ onSaved, onChangeServer, onUsersChanged }) {
   const [userError, setUserError] = useState('');
 
   const loadUsers = () => {
-    getUsers()
-      .then((u) => {
-        setUsers(u);
-        onUsersChanged?.(u.length > 0);
-      })
-      .catch(() => {});
+    getAccountUsers().then(setUsers).catch(() => {});
   };
 
   useEffect(() => {
@@ -60,8 +55,8 @@ export default function Settings({ onSaved, onChangeServer, onUsersChanged }) {
     e.preventDefault();
     setUserError('');
     setUserSaved('');
-    if (!userForm.username.trim() || !userForm.password) {
-      setUserError('Username and password are required');
+    if (!userForm.email.trim() || !userForm.password) {
+      setUserError('Email and password are required');
       return;
     }
     if (userForm.password !== userForm.confirmPassword) {
@@ -74,9 +69,9 @@ export default function Settings({ onSaved, onChangeServer, onUsersChanged }) {
     }
     setUserSaving(true);
     try {
-      await createUser(userForm);
+      await addAccountUser(userForm);
       setUserForm(emptyUserForm);
-      setUserSaved(`User "${userForm.username}" created.`);
+      setUserSaved(`Login "${userForm.email}" created.`);
       loadUsers();
     } catch (err) {
       setUserError(err.response?.data?.error || err.message);
@@ -85,13 +80,13 @@ export default function Settings({ onSaved, onChangeServer, onUsersChanged }) {
     }
   };
 
-  const handleDeleteUser = async (username) => {
-    if (!confirm(`Remove user "${username}"? They will no longer be able to log in.`)) return;
+  const handleDeleteUser = async (email) => {
+    if (!confirm(`Remove login "${email}"? They will no longer be able to log in.`)) return;
     setUserError('');
     setUserSaved('');
     try {
-      await deleteUser(username);
-      setUserSaved(`User "${username}" removed.`);
+      await deleteAccountUser(email);
+      setUserSaved(`Login "${email}" removed.`);
       loadUsers();
     } catch (err) {
       setUserError(err.response?.data?.error || err.message);
@@ -133,24 +128,23 @@ export default function Settings({ onSaved, onChangeServer, onUsersChanged }) {
       </form>
 
       <div className="card">
-        <h3 style={{ margin: '0 0 10px' }}>🔒 User Accounts</h3>
+        <h3 style={{ margin: '0 0 10px' }}>🔒 Logins</h3>
         <p className="muted" style={{ marginBottom: 14 }}>
-          {users.length > 0
-            ? 'A username and password are required to open this app. Anyone below can log in.'
-            : 'No user accounts yet — the app is open to anyone. Add an account below to require login.'}
+          Anyone listed below can log into this business account with their email and password.
         </p>
 
         {users.length > 0 && (
           <div className="table-wrap" style={{ marginBottom: 16 }}>
             <table className="ledger-table">
               <thead>
-                <tr><th>Username</th><th></th></tr>
+                <tr><th>Email</th><th>Role</th><th></th></tr>
               </thead>
               <tbody>
                 {users.map((u) => (
-                  <tr key={u.username}>
-                    <td>{u.username}</td>
-                    <td><button className="btn-danger-sm" onClick={() => handleDeleteUser(u.username)}>Remove</button></td>
+                  <tr key={u.email}>
+                    <td>{u.email}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{u.role}</td>
+                    <td><button className="btn-danger-sm" onClick={() => handleDeleteUser(u.email)}>Remove</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -162,8 +156,8 @@ export default function Settings({ onSaved, onChangeServer, onUsersChanged }) {
           {userError && <div className="error-banner">{userError}</div>}
           {userSaved && <div className="success-banner">{userSaved}</div>}
           <label>
-            Username
-            <input value={userForm.username} onChange={(e) => setUserForm({ ...userForm, username: e.target.value })} />
+            Email
+            <input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} />
           </label>
           <label>
             Password
@@ -186,7 +180,7 @@ export default function Settings({ onSaved, onChangeServer, onUsersChanged }) {
             <input value={userForm.securityAnswer} onChange={(e) => setUserForm({ ...userForm, securityAnswer: e.target.value })} />
           </label>
           <button className="btn-primary" type="submit" disabled={userSaving}>
-            {userSaving ? 'Adding...' : '+ Add User'}
+            {userSaving ? 'Adding...' : '+ Add Login'}
           </button>
         </form>
       </div>

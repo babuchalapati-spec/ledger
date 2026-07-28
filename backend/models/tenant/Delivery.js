@@ -16,4 +16,4 @@ const deliverySchema = new mongoose.Schema({
 
 deliverySchema.index({ deliveryTime: 1 });
 
-module.exports = mongoose.model('Delivery', deliverySchema);
+module.exports = (conn) => conn.models.Delivery || conn.model('Delivery', deliverySchema);

@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const Item = require('../models/Item');
+const getItemModel = require('../models/tenant/Item');
 const { factorFor } = require('../utils/units');
 const { defaultItems } = require('../utils/defaultItems');
+const { requireAuth } = require('../middleware/auth');
+
+router.use(requireAuth);
 
 // List all items, grouped/sorted by category then name
 router.get('/', async (req, res) => {
   try {
+    const Item = getItemModel(req.tenantConn);
     const items = await Item.find().sort({ category: 1, name: 1 });
     res.json(items);
   } catch (err) {
@@ -17,6 +21,7 @@ router.get('/', async (req, res) => {
 // Create item
 router.post('/', async (req, res) => {
   try {
+    const Item = getItemModel(req.tenantConn);
     const { name, nameTelugu, category, unitType, pricePerUnit, stockQty, lowStockThreshold } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Item name is required' });
     if (!['weight', 'volume', 'count'].includes(unitType)) {
@@ -41,6 +46,7 @@ router.post('/', async (req, res) => {
 // Update item
 router.put('/:id', async (req, res) => {
   try {
+    const Item = getItemModel(req.tenantConn);
     const { name, nameTelugu, category, unitType, pricePerUnit, stockQty, lowStockThreshold, isActive } = req.body;
     if (!['weight', 'volume', 'count'].includes(unitType)) {
       return res.status(400).json({ error: 'A valid unit type is required' });
@@ -70,6 +76,7 @@ router.put('/:id', async (req, res) => {
 // Delete item
 router.delete('/:id', async (req, res) => {
   try {
+    const Item = getItemModel(req.tenantConn);
     const item = await Item.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ error: 'Item not found' });
     res.json({ message: 'Item deleted' });
@@ -81,6 +88,7 @@ router.delete('/:id', async (req, res) => {
 // Quick restock (add stock directly, without going through the Order flow)
 router.post('/:id/restock', async (req, res) => {
   try {
+    const Item = getItemModel(req.tenantConn);
     const { unitLabel, quantity } = req.body;
     const qty = Number(quantity);
     if (!(qty > 0)) return res.status(400).json({ error: 'A positive quantity is required' });
@@ -102,6 +110,7 @@ router.post('/:id/restock', async (req, res) => {
 // Pre-populate common household grocery items (skips names that already exist)
 router.post('/seed-defaults', async (req, res) => {
   try {
+    const Item = getItemModel(req.tenantConn);
     const existingNames = new Set((await Item.find({}, 'name').lean()).map((i) => i.name.toLowerCase()));
     const toInsert = defaultItems.filter((d) => !existingNames.has(d.name.toLowerCase()));
     if (toInsert.length === 0) return res.json({ inserted: 0, items: [] });

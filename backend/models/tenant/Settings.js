@@ -7,4 +7,4 @@ const settingsSchema = new mongoose.Schema({
   phone: { type: String, trim: true, default: '' },
 }, { timestamps: true });
 
-module.exports = mongoose.model('Settings', settingsSchema);
+module.exports = (conn) => conn.models.Settings || conn.model('Settings', settingsSchema);

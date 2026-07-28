@@ -2,12 +2,18 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const router = express.Router();
-const Customer = require('../models/Customer');
-const Entry = require('../models/Entry');
+const getCustomerModel = require('../models/tenant/Customer');
+const getEntryModel = require('../models/tenant/Entry');
+const { requireAuth } = require('../middleware/auth');
+
+router.use(requireAuth);
 
 // List all customers with running balance summary
 router.get('/', async (req, res) => {
   try {
+    const Customer = getCustomerModel(req.tenantConn);
+    const Entry = getEntryModel(req.tenantConn);
+
     const customers = await Customer.find().sort({ name: 1 }).lean();
     const summaries = await Entry.aggregate([
       {
@@ -39,6 +45,7 @@ router.get('/', async (req, res) => {
 // Get single customer
 router.get('/:id', async (req, res) => {
   try {
+    const Customer = getCustomerModel(req.tenantConn);
     const customer = await Customer.findById(req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
     res.json(customer);
@@ -50,6 +57,7 @@ router.get('/:id', async (req, res) => {
 // Create customer
 router.post('/', async (req, res) => {
   try {
+    const Customer = getCustomerModel(req.tenantConn);
     const { name, address, gstNumber, phone, openingBalance } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Customer name is required' });
     const customer = await Customer.create({
@@ -68,6 +76,7 @@ router.post('/', async (req, res) => {
 // Update customer
 router.put('/:id', async (req, res) => {
   try {
+    const Customer = getCustomerModel(req.tenantConn);
     const { name, address, gstNumber, phone, openingBalance } = req.body;
     const customer = await Customer.findByIdAndUpdate(
       req.params.id,
@@ -84,6 +93,9 @@ router.put('/:id', async (req, res) => {
 // Delete customer (and their entries + attached files)
 router.delete('/:id', async (req, res) => {
   try {
+    const Customer = getCustomerModel(req.tenantConn);
+    const Entry = getEntryModel(req.tenantConn);
+
     const customer = await Customer.findByIdAndDelete(req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 

@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const Settings = require('../models/Settings');
+const getSettingsModel = require('../models/tenant/Settings');
+const { requireAuth } = require('../middleware/auth');
 
-// There is only ever one settings document (this app runs for a single business).
-async function getSingleton() {
+router.use(requireAuth);
+
+// There is only ever one settings document per tenant.
+async function getSingleton(Settings) {
   let settings = await Settings.findOne();
   if (!settings) settings = await Settings.create({});
   return settings;
@@ -11,7 +14,8 @@ async function getSingleton() {
 
 router.get('/', async (req, res) => {
   try {
-    const settings = await getSingleton();
+    const Settings = getSettingsModel(req.tenantConn);
+    const settings = await getSingleton(Settings);
     res.json(settings);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -20,8 +24,9 @@ router.get('/', async (req, res) => {
 
 router.put('/', async (req, res) => {
   try {
+    const Settings = getSettingsModel(req.tenantConn);
     const { businessName, address, gstNumber, phone } = req.body;
-    const settings = await getSingleton();
+    const settings = await getSingleton(Settings);
     settings.businessName = businessName ?? settings.businessName;
     settings.address = address ?? settings.address;
     settings.gstNumber = gstNumber ?? settings.gstNumber;

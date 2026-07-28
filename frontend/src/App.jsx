@@ -9,62 +9,68 @@ import Settings from './pages/Settings';
 import ServerConnect from './pages/ServerConnect';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import { getSettings, getAuthStatus, isMobileApp, getServerUrl } from './api/client';
+import { getSettings, getAccountMe, isMobileApp, getServerUrl, getToken, clearToken } from './api/client';
 import './App.css';
-
-const SESSION_USER_KEY = 'ledger_logged_in_user';
 
 function App() {
   const [view, setView] = useState('home'); // 'home' | 'list' | 'ledger' | 'settings' | 'inventory' | 'deliveries'
+  const [authView, setAuthView] = useState('login'); // 'login' | 'register', shown when logged out
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [autoOpenForm, setAutoOpenForm] = useState(false);
   const [businessName, setBusinessName] = useState('');
+  const [modules, setModules] = useState({ groceryInventory: false, deliveries: false });
   const [mobileConnected, setMobileConnected] = useState(!isMobileApp() || !!getServerUrl());
   const [authChecked, setAuthChecked] = useState(false);
-  const [locked, setLocked] = useState(false);
-  const [needsRegistration, setNeedsRegistration] = useState(false);
-  const [loggedInUser, setLoggedInUser] = useState(localStorage.getItem(SESSION_USER_KEY) || '');
+  const [loggedIn, setLoggedIn] = useState(false);
 
   const checkAuth = () => {
-    getAuthStatus()
-      .then((s) => {
-        const loggedIn = !!localStorage.getItem(SESSION_USER_KEY);
-        setNeedsRegistration(!s.hasUsers);
-        setLocked(s.hasUsers && !loggedIn);
+    if (!getToken()) {
+      setLoggedIn(false);
+      setAuthChecked(true);
+      return;
+    }
+    getAccountMe()
+      .then((account) => {
+        setModules(account.modules || {});
+        setLoggedIn(true);
       })
-      .catch(() => {})
+      .catch(() => {
+        clearToken();
+        setLoggedIn(false);
+      })
       .finally(() => setAuthChecked(true));
   };
 
   useEffect(() => {
     if (!mobileConnected) return;
+    checkAuth();
+  }, [mobileConnected]);
+
+  useEffect(() => {
+    if (!mobileConnected || !loggedIn) return;
     getSettings()
       .then((s) => {
         setBusinessName(s.businessName || '');
         document.title = s.businessName ? `${s.businessName} — Ledger Records` : 'Ledger Records';
       })
       .catch(() => {});
-
-    checkAuth();
-  }, [mobileConnected]);
+  }, [mobileConnected, loggedIn]);
 
   const handleSettingsSaved = (s) => {
     setBusinessName(s.businessName || '');
     document.title = s.businessName ? `${s.businessName} — Ledger Records` : 'Ledger Records';
   };
 
-  const handleLoggedIn = (username) => {
-    localStorage.setItem(SESSION_USER_KEY, username);
-    setLoggedInUser(username);
-    setLocked(false);
-    setNeedsRegistration(false);
+  const handleLoggedIn = () => {
+    setLoggedIn(true);
+    checkAuth();
   };
 
   const handleLogOff = () => {
-    localStorage.removeItem(SESSION_USER_KEY);
-    setLoggedInUser('');
+    clearToken();
+    setLoggedIn(false);
+    setAuthView('login');
     goHome();
-    checkAuth();
   };
 
   const goHome = () => {
@@ -93,25 +99,21 @@ function App() {
 
   if (!authChecked) return null;
 
-  if (needsRegistration) {
+  if (!loggedIn) {
     return (
       <div className="app">
-        <Register onRegistered={handleLoggedIn} />
-      </div>
-    );
-  }
-
-  if (locked) {
-    return (
-      <div className="app">
-        <Login onLoggedIn={handleLoggedIn} />
+        {authView === 'register' ? (
+          <Register onRegistered={handleLoggedIn} onSwitchToLogin={() => setAuthView('login')} />
+        ) : (
+          <Login onLoggedIn={handleLoggedIn} onSwitchToRegister={() => setAuthView('register')} />
+        )}
       </div>
     );
   }
 
   return (
     <div className="app">
-      <DeliveryReminder />
+      {modules.deliveries && <DeliveryReminder />}
       <header className="app-header">
         <h1 onClick={goHome} style={{ cursor: 'pointer' }}>
           {businessName || 'Ledger Records'}
@@ -127,17 +129,15 @@ function App() {
               ⚙ Settings
             </button>
           )}
-          {loggedInUser && (
-            <button className="btn-secondary" onClick={handleLogOff}>
-              🚪 Log Off ({loggedInUser})
-            </button>
-          )}
+          <button className="btn-secondary" onClick={handleLogOff}>
+            🚪 Log Off
+          </button>
         </div>
       </header>
 
       <main className="app-main">
         {view === 'settings' && (
-          <Settings onSaved={handleSettingsSaved} onChangeServer={() => setMobileConnected(false)} onUsersChanged={checkAuth} />
+          <Settings onSaved={handleSettingsSaved} onChangeServer={() => setMobileConnected(false)} />
         )}
         {view === 'home' && (
           <Home
@@ -145,12 +145,13 @@ function App() {
             onCreateCustomer={() => { setAutoOpenForm(true); setView('list'); }}
             onOpenInventory={() => setView('inventory')}
             onOpenDeliveries={() => setView('deliveries')}
+            modules={modules}
           />
         )}
         {view === 'list' && <CustomerList onOpenCustomer={openCustomer} autoOpenForm={autoOpenForm} />}
         {view === 'ledger' && selectedCustomerId && <CustomerLedger customerId={selectedCustomerId} />}
-        {view === 'inventory' && <Inventory />}
-        {view === 'deliveries' && <Deliveries />}
+        {view === 'inventory' && modules.groceryInventory && <Inventory />}
+        {view === 'deliveries' && modules.deliveries && <Deliveries />}
       </main>
     </div>
   );

@@ -5,12 +5,15 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const mongoose = require('mongoose');
+const { withDbName } = require('./db/tenantConnections');
 
 const customerRoutes = require('./routes/customers');
 const entryRoutes = require('./routes/entries');
 const ledgerRoutes = require('./routes/ledger');
 const settingsRoutes = require('./routes/settings');
-const authRoutes = require('./routes/auth');
+const platformAuthRoutes = require('./routes/platformAuth');
+const superAdminRoutes = require('./routes/superadmin');
+const accountRoutes = require('./routes/account');
 const itemRoutes = require('./routes/items');
 const orderRoutes = require('./routes/orders');
 const deliveryRoutes = require('./routes/deliveries');
@@ -18,6 +21,11 @@ const deliveryRoutes = require('./routes/deliveries');
 const app = express();
 const PORT = process.env.PORT || 8811;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/ledger_app';
+const MASTER_URI = withDbName(MONGO_URI, 'ledger_master');
+
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET is not set. Using an insecure default — set it in production.');
+}
 
 app.use(cors());
 app.use(express.json());
@@ -27,7 +35,9 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/entries', entryRoutes);
 app.use('/api/ledger', ledgerRoutes);
 app.use('/api/settings', settingsRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', platformAuthRoutes);
+app.use('/api/superadmin', superAdminRoutes);
+app.use('/api/account', accountRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/deliveries', deliveryRoutes);
@@ -65,9 +75,12 @@ app.use((err, req, res, next) => {
   res.status(400).json({ error: err.message || 'Unexpected error' });
 });
 
-mongoose.connect(MONGO_URI)
+// The default connection holds the master/control-plane data (Account,
+// PlatformUser, SuperAdmin). Each tenant's business data lives in its own
+// database, opened on demand via db/tenantConnections.js.
+mongoose.connect(MASTER_URI)
   .then(() => {
-    console.log('Connected to MongoDB at', MONGO_URI);
+    console.log('Connected to master DB at', MASTER_URI);
     app.listen(PORT, () => console.log(`Ledger backend running on http://localhost:${PORT}`));
   })
   .catch((err) => {

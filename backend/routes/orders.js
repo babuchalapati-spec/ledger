@@ -1,14 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const Order = require('../models/Order');
-const Item = require('../models/Item');
-const Settings = require('../models/Settings');
+const getOrderModel = require('../models/tenant/Order');
+const getItemModel = require('../models/tenant/Item');
+const getSettingsModel = require('../models/tenant/Settings');
 const { factorFor } = require('../utils/units');
 const { generateOrderPdf } = require('../utils/generateOrderPdf');
+const { requireAuth } = require('../middleware/auth');
+
+router.use(requireAuth);
 
 // List all orders, most recent first
 router.get('/', async (req, res) => {
   try {
+    const Order = getOrderModel(req.tenantConn);
     const orders = await Order.find().sort({ date: -1, createdAt: -1 });
     res.json(orders);
   } catch (err) {
@@ -20,6 +24,8 @@ router.get('/', async (req, res) => {
 // until the order is marked received.
 router.post('/', async (req, res) => {
   try {
+    const Order = getOrderModel(req.tenantConn);
+    const Item = getItemModel(req.tenantConn);
     const { date, orderedFor, notes, items } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Add at least one item to the order' });
@@ -78,6 +84,9 @@ router.post('/', async (req, res) => {
 //   download=1 -> force a file download instead of opening inline in the browser/webview
 router.get('/:id/pdf', async (req, res) => {
   try {
+    const Order = getOrderModel(req.tenantConn);
+    const Settings = getSettingsModel(req.tenantConn);
+
     const order = await Order.findById(req.params.id).lean();
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
@@ -99,6 +108,9 @@ router.get('/:id/pdf', async (req, res) => {
 // Mark an order received: adds each ordered quantity into the item's stock
 router.post('/:id/receive', async (req, res) => {
   try {
+    const Order = getOrderModel(req.tenantConn);
+    const Item = getItemModel(req.tenantConn);
+
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Order not found' });
     if (order.status === 'received') return res.status(400).json({ error: 'Order is already marked received' });
@@ -118,6 +130,9 @@ router.post('/:id/receive', async (req, res) => {
 // Delete an order. If it had already been received, reverse the stock it added.
 router.delete('/:id', async (req, res) => {
   try {
+    const Order = getOrderModel(req.tenantConn);
+    const Item = getItemModel(req.tenantConn);
+
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Order not found' });
 

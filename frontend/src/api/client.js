@@ -1,6 +1,8 @@
 import axios from 'axios';
 
 const STORAGE_KEY = 'ledger_server_url';
+const TOKEN_KEY = 'ledger_auth_token';
+const ADMIN_TOKEN_KEY = 'ledger_admin_token';
 
 export const isMobileApp = () => typeof window !== 'undefined' && !!window.Capacitor?.isNativePlatform?.();
 
@@ -14,6 +16,32 @@ function resolveInitialOrigin() {
 let API_ORIGIN = resolveInitialOrigin();
 
 const api = axios.create({ baseURL: `${API_ORIGIN}/api` });
+
+export const getToken = () => localStorage.getItem(TOKEN_KEY);
+export const setToken = (t) => localStorage.setItem(TOKEN_KEY, t);
+export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+
+export const getAdminToken = () => localStorage.getItem(ADMIN_TOKEN_KEY);
+export const setAdminToken = (t) => localStorage.setItem(ADMIN_TOKEN_KEY, t);
+export const clearAdminToken = () => localStorage.removeItem(ADMIN_TOKEN_KEY);
+
+api.interceptors.request.use((config) => {
+  const isAdminCall = config.url?.startsWith('/superadmin');
+  const token = isAdminCall ? getAdminToken() : getToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      if (err.config?.url?.startsWith('/superadmin')) clearAdminToken();
+      else clearToken();
+    }
+    return Promise.reject(err);
+  }
+);
 
 export const getServerUrl = () => API_ORIGIN;
 
@@ -46,13 +74,24 @@ export const deleteEntry = (id) => api.delete(`/entries/${id}`).then((r) => r.da
 export const getSettings = () => api.get('/settings').then((r) => r.data);
 export const updateSettings = (data) => api.put('/settings', data).then((r) => r.data);
 
-export const getAuthStatus = () => api.get('/auth/status').then((r) => r.data);
-export const getUsers = () => api.get('/auth/users').then((r) => r.data);
-export const login = (username, password) => api.post('/auth/login', { username, password }).then((r) => r.data);
-export const createUser = (data) => api.post('/auth/users', data).then((r) => r.data);
-export const deleteUser = (username) => api.delete(`/auth/users/${encodeURIComponent(username)}`).then((r) => r.data);
-export const getSecurityQuestion = (username) => api.get('/auth/security-question', { params: { username } }).then((r) => r.data);
+// Platform (business) auth — email + password
+export const register = (data) => api.post('/auth/register', data).then((r) => r.data);
+export const login = (email, password) => api.post('/auth/login', { email, password }).then((r) => r.data);
+export const getSecurityQuestion = (email) => api.get('/auth/security-question', { params: { email } }).then((r) => r.data);
 export const resetPassword = (data) => api.post('/auth/reset-password', data).then((r) => r.data);
+
+// Current account profile/modules + its logins
+export const getAccountMe = () => api.get('/account/me').then((r) => r.data);
+export const getAccountUsers = () => api.get('/account/users').then((r) => r.data);
+export const addAccountUser = (data) => api.post('/account/users', data).then((r) => r.data);
+export const deleteAccountUser = (email) => api.delete(`/account/users/${encodeURIComponent(email)}`).then((r) => r.data);
+
+// Super Admin
+export const superAdminExists = () => api.get('/superadmin/exists').then((r) => r.data);
+export const superAdminRegister = (data) => api.post('/superadmin/register', data).then((r) => r.data);
+export const superAdminLogin = (email, password) => api.post('/superadmin/login', { email, password }).then((r) => r.data);
+export const getAccounts = () => api.get('/superadmin/accounts').then((r) => r.data);
+export const updateAccount = (id, data) => api.put(`/superadmin/accounts/${id}`, data).then((r) => r.data);
 
 export const getItems = () => api.get('/items').then((r) => r.data);
 export const createItem = (data) => api.post('/items', data).then((r) => r.data);
@@ -65,11 +104,12 @@ export const getOrders = () => api.get('/orders').then((r) => r.data);
 export const createOrder = (data) => api.post('/orders', data).then((r) => r.data);
 export const receiveOrder = (id) => api.post(`/orders/${id}/receive`).then((r) => r.data);
 export const deleteOrder = (id) => api.delete(`/orders/${id}`).then((r) => r.data);
-// view = open inline in the browser/webview; without it, the file downloads immediately
-export const orderViewUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf`;
-export const orderDownloadUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?download=1`;
-export const shoppingListViewUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?plain=1`;
-export const shoppingListDownloadUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?plain=1&download=1`;
+// view = open inline in the browser/webview; without it, the file downloads immediately.
+// These are plain <a href> links, so the auth token travels as a query param.
+export const orderViewUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?token=${encodeURIComponent(getToken() || '')}`;
+export const orderDownloadUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?download=1&token=${encodeURIComponent(getToken() || '')}`;
+export const shoppingListViewUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?plain=1&token=${encodeURIComponent(getToken() || '')}`;
+export const shoppingListDownloadUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?plain=1&download=1&token=${encodeURIComponent(getToken() || '')}`;
 
 export const getDeliveries = () => api.get('/deliveries').then((r) => r.data);
 export const createDelivery = (data) => api.post('/deliveries', data).then((r) => r.data);
@@ -79,7 +119,10 @@ export const deleteDelivery = (id) => api.delete(`/deliveries/${id}`).then((r) =
 export const uploadDeliveryInvoice = (id, formData) =>
   api.post(`/deliveries/${id}/invoice`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
 
-export const ledgerPdfUrl = (customerId) => `${API_ORIGIN}/api/ledger/${customerId}/pdf`;
+export const ledgerPdfUrl = (customerId) => {
+  const token = getToken();
+  return `${API_ORIGIN}/api/ledger/${customerId}/pdf${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+};
 export const fileUrl = (path) => `${API_ORIGIN}${path}`;
 
 export default api;

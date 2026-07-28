@@ -1,16 +1,22 @@
 import { useState } from 'react';
-import { createUser, login } from '../api/client';
+import { register, setToken } from '../api/client';
 
-export default function Register({ onRegistered }) {
-  const [form, setForm] = useState({ username: '', password: '', confirmPassword: '', securityQuestion: '', securityAnswer: '' });
+const emptyForm = { businessName: '', email: '', password: '', confirmPassword: '', securityQuestion: '', securityAnswer: '' };
+
+export default function Register({ onRegistered, onSwitchToLogin }) {
+  const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!form.username.trim() || !form.password) {
-      setError('Username and password are required');
+    if (!form.businessName.trim()) {
+      setError('Business name is required');
+      return;
+    }
+    if (!form.email.trim() || !form.password) {
+      setError('Email and password are required');
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -23,9 +29,9 @@ export default function Register({ onRegistered }) {
     }
     setSaving(true);
     try {
-      await createUser(form);
-      const result = await login(form.username, form.password);
-      onRegistered(result.username);
+      const result = await register(form);
+      setToken(result.token);
+      onRegistered(result.businessName, result.email);
     } catch (err) {
       setError(err.response?.data?.error || err.message);
     } finally {
@@ -36,15 +42,19 @@ export default function Register({ onRegistered }) {
   return (
     <div className="server-connect">
       <div className="card server-connect-card">
-        <h2>👋 Create Your Login</h2>
+        <h2>👋 Create Your Business Account</h2>
         <p className="muted">
-          This is the first time this app has been opened. Create a username and password to
-          protect it — you'll use these to log in every time from now on.
+          Set up your business and its first login. You'll use this email and password
+          to log in every time from now on.
         </p>
         <form onSubmit={handleSubmit} className="server-connect-form">
           <label>
-            Username
-            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoFocus />
+            Business Name
+            <input value={form.businessName} onChange={(e) => setForm({ ...form, businessName: e.target.value })} autoFocus />
+          </label>
+          <label>
+            Email
+            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           </label>
           <label>
             Password
@@ -70,6 +80,7 @@ export default function Register({ onRegistered }) {
           <button className="btn-primary" type="submit" disabled={saving}>
             {saving ? 'Creating...' : 'Register & Log In'}
           </button>
+          <button type="button" className="btn-link" onClick={onSwitchToLogin}>Already have an account? Log in</button>
         </form>
       </div>
     </div>

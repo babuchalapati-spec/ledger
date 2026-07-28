@@ -22,4 +22,4 @@ const orderSchema = new mongoose.Schema({
   receivedAt: { type: Date },
 }, { timestamps: true });
 
-module.exports = mongoose.model('Order', orderSchema);
+module.exports = (conn) => conn.models.Order || conn.model('Order', orderSchema);

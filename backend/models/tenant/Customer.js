@@ -8,4 +8,4 @@ const customerSchema = new mongoose.Schema({
   openingBalance: { type: Number, default: 0 },
 }, { timestamps: true });
 
-module.exports = mongoose.model('Customer', customerSchema);
+module.exports = (conn) => conn.models.Customer || conn.model('Customer', customerSchema);

@@ -1,12 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const Customer = require('../models/Customer');
-const Entry = require('../models/Entry');
-const Settings = require('../models/Settings');
+const getCustomerModel = require('../models/tenant/Customer');
+const getEntryModel = require('../models/tenant/Entry');
+const getSettingsModel = require('../models/tenant/Settings');
 const { generateLedgerPdf } = require('../utils/generateLedgerPdf');
+const { requireAuth } = require('../middleware/auth');
+
+router.use(requireAuth);
 
 router.get('/:customerId/pdf', async (req, res) => {
   try {
+    const Customer = getCustomerModel(req.tenantConn);
+    const Entry = getEntryModel(req.tenantConn);
+    const Settings = getSettingsModel(req.tenantConn);
+
     const customer = await Customer.findById(req.params.customerId).lean();
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 

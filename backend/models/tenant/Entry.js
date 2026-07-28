@@ -18,4 +18,4 @@ const entrySchema = new mongoose.Schema({
 
 entrySchema.index({ customer: 1, date: 1 });
 
-module.exports = mongoose.model('Entry', entrySchema);
+module.exports = (conn) => conn.models.Entry || conn.model('Entry', entrySchema);

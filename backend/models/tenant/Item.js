@@ -13,4 +13,4 @@ const itemSchema = new mongoose.Schema({
 
 itemSchema.index({ name: 1 }, { unique: true });
 
-module.exports = mongoose.model('Item', itemSchema);
+module.exports = (conn) => conn.models.Item || conn.model('Item', itemSchema);

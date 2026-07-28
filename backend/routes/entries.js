@@ -3,8 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const router = express.Router();
-const Entry = require('../models/Entry');
-const Customer = require('../models/Customer');
+const getEntryModel = require('../models/tenant/Entry');
+const getCustomerModel = require('../models/tenant/Customer');
+const { requireAuth } = require('../middleware/auth');
+
+router.use(requireAuth);
 
 const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -30,6 +33,9 @@ const upload = multer({
 // List entries for a customer, sorted by date (ledger order), with running balance
 router.get('/customer/:customerId', async (req, res) => {
   try {
+    const Customer = getCustomerModel(req.tenantConn);
+    const Entry = getEntryModel(req.tenantConn);
+
     const customer = await Customer.findById(req.params.customerId).lean();
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
@@ -67,6 +73,7 @@ function deleteUploadedFiles(files) {
 // Create entry (bill or payment) with optional document uploads
 router.post('/', upload.array('documents', 5), async (req, res) => {
   try {
+    const Entry = getEntryModel(req.tenantConn);
     const { customer, date, type, description, billNumber, amount, paymentMode } = req.body;
     if (!customer || !date || !type || !amount || !(Number(amount) > 0)) {
       deleteUploadedFiles(req.files);
@@ -105,6 +112,7 @@ router.post('/', upload.array('documents', 5), async (req, res) => {
 // Update entry
 router.put('/:id', upload.array('documents', 5), async (req, res) => {
   try {
+    const Entry = getEntryModel(req.tenantConn);
     const { date, type, description, billNumber, amount, paymentMode, keepDocuments } = req.body;
 
     if (amount !== undefined && !(Number(amount) > 0)) {
@@ -162,6 +170,7 @@ router.put('/:id', upload.array('documents', 5), async (req, res) => {
 // Delete entry
 router.delete('/:id', async (req, res) => {
   try {
+    const Entry = getEntryModel(req.tenantConn);
     const entry = await Entry.findByIdAndDelete(req.params.id);
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
     entry.documents.forEach((d) => {

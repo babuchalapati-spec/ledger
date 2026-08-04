@@ -36,7 +36,7 @@ router.post('/register', async (req, res) => {
       status: 'trial',
       trialEndsAt: new Date(Date.now() + TRIAL_DURATION_MS),
       // Full access during the trial day, so there's something to actually try.
-      modules: { groceryInventory: true, deliveries: true },
+      modules: { groceryInventory: true, deliveries: true, projects: true },
     });
 
     const { hash, salt } = hashPassword(password);

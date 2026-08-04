@@ -73,6 +73,13 @@ export const updateEntry = (id, formData) =>
 
 export const deleteEntry = (id) => api.delete(`/entries/${id}`).then((r) => r.data);
 
+export const extractBill = (formData) =>
+  api.post('/entries/extract-bill', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+export const parseStatement = (formData) =>
+  api.post('/entries/parse-statement', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+export const bulkCreateEntries = (customer, entries) =>
+  api.post('/entries/bulk', { customer, entries }).then((r) => r.data);
+
 export const getSettings = () => api.get('/settings').then((r) => r.data);
 export const updateSettings = (data) => api.put('/settings', data).then((r) => r.data);
 
@@ -124,6 +131,15 @@ export const orderViewUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?token=${
 export const orderDownloadUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?download=1&token=${encodeURIComponent(getToken() || '')}`;
 export const shoppingListViewUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?plain=1&token=${encodeURIComponent(getToken() || '')}`;
 export const shoppingListDownloadUrl = (id) => `${API_ORIGIN}/api/orders/${id}/pdf?plain=1&download=1&token=${encodeURIComponent(getToken() || '')}`;
+
+export const getProjects = () => api.get('/projects').then((r) => r.data);
+export const createProject = (data) => api.post('/projects', data).then((r) => r.data);
+export const getProject = (id) => api.get(`/projects/${id}`).then((r) => r.data);
+export const updateProject = (id, data) => api.put(`/projects/${id}`, data).then((r) => r.data);
+export const deleteProject = (id) => api.delete(`/projects/${id}`).then((r) => r.data);
+export const addProjectExpense = (id, formData) =>
+  api.post(`/projects/${id}/expenses`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+export const deleteProjectExpense = (id, expenseId) => api.delete(`/projects/${id}/expenses/${expenseId}`).then((r) => r.data);
 
 export const getDeliveries = () => api.get('/deliveries').then((r) => r.data);
 export const createDelivery = (data) => api.post('/deliveries', data).then((r) => r.data);

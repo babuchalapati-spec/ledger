@@ -4,6 +4,7 @@ import CustomerList from './pages/CustomerList';
 import CustomerLedger from './pages/CustomerLedger';
 import Inventory from './pages/Inventory';
 import Deliveries from './pages/Deliveries';
+import Projects from './pages/Projects';
 import DeliveryReminder from './components/DeliveryReminder';
 import Settings from './pages/Settings';
 import ServerConnect from './pages/ServerConnect';
@@ -14,12 +15,12 @@ import { getSettings, getAccountMe, isMobileApp, getServerUrl, getToken, clearTo
 import './App.css';
 
 function App() {
-  const [view, setView] = useState('home'); // 'home' | 'list' | 'ledger' | 'settings' | 'inventory' | 'deliveries'
+  const [view, setView] = useState('home'); // 'home' | 'list' | 'ledger' | 'settings' | 'inventory' | 'deliveries' | 'projects'
   const [authView, setAuthView] = useState('login'); // 'login' | 'register', shown when logged out
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [autoOpenForm, setAutoOpenForm] = useState(false);
   const [businessName, setBusinessName] = useState('');
-  const [modules, setModules] = useState({ groceryInventory: false, deliveries: false });
+  const [modules, setModules] = useState({ groceryInventory: false, deliveries: false, projects: false });
   const [mobileConnected, setMobileConnected] = useState(!isMobileApp() || !!getServerUrl());
   const [authChecked, setAuthChecked] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
@@ -158,6 +159,7 @@ function App() {
             onCreateCustomer={() => { setAutoOpenForm(true); setView('list'); }}
             onOpenInventory={() => setView('inventory')}
             onOpenDeliveries={() => setView('deliveries')}
+            onOpenProjects={() => setView('projects')}
             modules={modules}
           />
         )}
@@ -165,6 +167,7 @@ function App() {
         {view === 'ledger' && selectedCustomerId && <CustomerLedger customerId={selectedCustomerId} />}
         {view === 'inventory' && modules.groceryInventory && <Inventory />}
         {view === 'deliveries' && modules.deliveries && <Deliveries />}
+        {view === 'projects' && modules.projects && <Projects />}
       </main>
     </div>
   );

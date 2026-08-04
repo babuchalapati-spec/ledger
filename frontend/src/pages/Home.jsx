@@ -1,4 +1,4 @@
-export default function Home({ onViewLedgers, onCreateCustomer, onOpenInventory, onOpenDeliveries, modules = {} }) {
+export default function Home({ onViewLedgers, onCreateCustomer, onOpenInventory, onOpenDeliveries, onOpenProjects, modules = {} }) {
   return (
     <div className="home-screen">
       <h2>What would you like to do?</h2>
@@ -25,6 +25,13 @@ export default function Home({ onViewLedgers, onCreateCustomer, onOpenInventory,
             <span className="home-card-icon">🚚</span>
             <span className="home-card-title">Deliveries</span>
             <span className="home-card-desc">Schedule what has to be delivered and when, with a daily reminder for anything still pending</span>
+          </button>
+        )}
+        {modules.projects && (
+          <button className="home-card" onClick={onOpenProjects}>
+            <span className="home-card-icon">🧾</span>
+            <span className="home-card-title">Projects — Split Expenses</span>
+            <span className="home-card-desc">Track shared spending across a group and see who owes whom to settle up</span>
           </button>
         )}
       </div>

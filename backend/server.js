@@ -17,6 +17,7 @@ const accountRoutes = require('./routes/account');
 const itemRoutes = require('./routes/items');
 const orderRoutes = require('./routes/orders');
 const deliveryRoutes = require('./routes/deliveries');
+const projectRoutes = require('./routes/projects');
 
 const app = express();
 const PORT = process.env.PORT || 8811;
@@ -41,6 +42,7 @@ app.use('/api/account', accountRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/deliveries', deliveryRoutes);
+app.use('/api/projects', projectRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

@@ -5,7 +5,7 @@ import {
   getPlatformSettings, updatePlatformSettings,
 } from '../../api/client';
 
-const emptyPlanForm = { name: '', price: '', billingPeriod: 'monthly', description: '', groceryInventory: false, deliveries: false };
+const emptyPlanForm = { name: '', price: '', billingPeriod: 'monthly', description: '', groceryInventory: false, deliveries: false, projects: false };
 
 export default function SuperAdminDashboard({ onLoggedOut }) {
   const [accounts, setAccounts] = useState([]);
@@ -92,6 +92,7 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
       description: plan.description || '',
       groceryInventory: !!plan.modules.groceryInventory,
       deliveries: !!plan.modules.deliveries,
+      projects: !!plan.modules.projects,
     });
     setEditingPlanId(plan._id);
   };
@@ -107,7 +108,7 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
       price: Number(planForm.price),
       billingPeriod: planForm.billingPeriod,
       description: planForm.description,
-      modules: { groceryInventory: planForm.groceryInventory, deliveries: planForm.deliveries },
+      modules: { groceryInventory: planForm.groceryInventory, deliveries: planForm.deliveries, projects: planForm.projects },
     };
     try {
       if (editingPlanId) await updatePlan(editingPlanId, payload);
@@ -171,6 +172,7 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
                 <th>Status</th>
                 <th>Grocery Inventory</th>
                 <th>Deliveries</th>
+                <th>Projects</th>
                 <th>Business Data</th>
                 <th>Password Reset</th>
               </tr>
@@ -196,6 +198,9 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
                   </td>
                   <td>
                     <input type="checkbox" checked={!!a.modules.deliveries} onChange={() => handleModuleToggle(a, 'deliveries')} />
+                  </td>
+                  <td>
+                    <input type="checkbox" checked={!!a.modules.projects} onChange={() => handleModuleToggle(a, 'projects')} />
                   </td>
                   <td style={{ fontSize: 12 }}>
                     {a.stats ? (
@@ -266,6 +271,10 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
         <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <input type="checkbox" checked={planForm.deliveries} onChange={(e) => setPlanForm({ ...planForm, deliveries: e.target.checked })} />
           Includes Deliveries
+        </label>
+        <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <input type="checkbox" checked={planForm.projects} onChange={(e) => setPlanForm({ ...planForm, projects: e.target.checked })} />
+          Includes Projects
         </label>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn-primary" type="submit">{editingPlanId ? 'Save Changes' : '+ Add Plan'}</button>

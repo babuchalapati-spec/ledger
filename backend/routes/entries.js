@@ -6,6 +6,7 @@ const router = express.Router();
 const getEntryModel = require('../models/tenant/Entry');
 const getCustomerModel = require('../models/tenant/Customer');
 const { requireAuth } = require('../middleware/auth');
+const { extractSingleBill, extractStatement } = require('../utils/billExtraction');
 
 router.use(requireAuth);
 
@@ -105,6 +106,63 @@ router.post('/', upload.array('documents', 5), async (req, res) => {
     res.status(201).json(entry);
   } catch (err) {
     deleteUploadedFiles(req.files);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// AI: read a single bill photo/PDF and extract bill number, amount, description
+router.post('/extract-bill', upload.single('bill'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'A bill photo or PDF is required' });
+  try {
+    const extracted = await extractSingleBill(req.file.path, req.file.mimetype);
+    res.json(extracted);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Could not read the bill' });
+  } finally {
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+  }
+});
+
+// AI: read a full account statement (photo/PDF) and extract every transaction
+router.post('/parse-statement', upload.single('statement'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'A statement photo or PDF is required' });
+  try {
+    const transactions = await extractStatement(req.file.path, req.file.mimetype);
+    res.json({ transactions });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Could not read the statement' });
+  } finally {
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+  }
+});
+
+// Create many entries at once for one customer (used after reviewing a parsed statement)
+router.post('/bulk', async (req, res) => {
+  try {
+    const Entry = getEntryModel(req.tenantConn);
+    const { customer, entries } = req.body;
+    if (!customer || !Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({ error: 'customer and a non-empty entries array are required' });
+    }
+    for (const e of entries) {
+      if (!e.date || !e.type || !['bill', 'payment'].includes(e.type) || !(Number(e.amount) > 0)) {
+        return res.status(400).json({ error: 'Each entry needs a date, a valid type, and a positive amount' });
+      }
+    }
+
+    const docs = entries.map((e) => ({
+      customer,
+      date: new Date(e.date),
+      type: e.type,
+      description: e.description || '',
+      billNumber: e.type === 'bill' ? (e.billNumber || '') : '',
+      amount: Number(e.amount),
+      paymentMode: e.type === 'payment' ? (e.paymentMode || '') : '',
+    }));
+
+    const created = await Entry.insertMany(docs);
+    res.status(201).json(created);
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

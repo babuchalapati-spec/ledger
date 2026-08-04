@@ -125,6 +125,7 @@ router.put('/accounts/:id', requireSuperAdmin, async (req, res) => {
     if (modules !== undefined) {
       if (modules.groceryInventory !== undefined) account.modules.groceryInventory = !!modules.groceryInventory;
       if (modules.deliveries !== undefined) account.modules.deliveries = !!modules.deliveries;
+      if (modules.projects !== undefined) account.modules.projects = !!modules.projects;
     }
     await account.save();
     res.json(account);
@@ -180,7 +181,7 @@ router.post('/plans', requireSuperAdmin, async (req, res) => {
       price: Number(price),
       billingPeriod: billingPeriod || 'monthly',
       description,
-      modules: { groceryInventory: !!modules?.groceryInventory, deliveries: !!modules?.deliveries },
+      modules: { groceryInventory: !!modules?.groceryInventory, deliveries: !!modules?.deliveries, projects: !!modules?.projects },
     });
     res.status(201).json(plan);
   } catch (err) {
@@ -202,6 +203,7 @@ router.put('/plans/:id', requireSuperAdmin, async (req, res) => {
     if (modules !== undefined) {
       if (modules.groceryInventory !== undefined) plan.modules.groceryInventory = !!modules.groceryInventory;
       if (modules.deliveries !== undefined) plan.modules.deliveries = !!modules.deliveries;
+      if (modules.projects !== undefined) plan.modules.projects = !!modules.projects;
     }
     await plan.save();
     res.json(plan);

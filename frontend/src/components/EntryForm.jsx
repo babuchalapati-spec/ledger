@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createEntry } from '../api/client';
+import { createEntry, extractBill } from '../api/client';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -17,6 +17,31 @@ export default function EntryForm({ customerId, onAdded }) {
   const [files, setFiles] = useState([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState('');
+
+  const handleScanBill = async () => {
+    if (files.length !== 1) return;
+    setScanning(true);
+    setScanNote('');
+    setError('');
+    try {
+      const fd = new FormData();
+      fd.append('bill', files[0]);
+      const extracted = await extractBill(fd);
+      setForm((f) => ({
+        ...f,
+        billNumber: extracted.billNumber || f.billNumber,
+        description: extracted.description || f.description,
+        amount: extracted.amount || f.amount,
+      }));
+      setScanNote('Auto-filled from the bill — please check before saving.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Could not read the bill');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -119,9 +144,18 @@ export default function EntryForm({ customerId, onAdded }) {
           type="file"
           accept="image/jpeg,image/png,image/webp,application/pdf"
           multiple
-          onChange={(e) => setFiles(Array.from(e.target.files))}
+          onChange={(e) => { setFiles(Array.from(e.target.files)); setScanNote(''); }}
         />
       </label>
+
+      {form.type === 'bill' && files.length === 1 && (
+        <div style={{ gridColumn: '1 / -1' }}>
+          <button type="button" className="btn-secondary" onClick={handleScanBill} disabled={scanning}>
+            {scanning ? 'Reading bill...' : '🔍 Auto-fill from Bill (AI)'}
+          </button>
+          {scanNote && <span className="muted" style={{ marginLeft: 10, fontSize: 12 }}>{scanNote}</span>}
+        </div>
+      )}
 
       <button className="btn-primary" type="submit" disabled={saving}>
         {saving ? 'Saving...' : form.type === 'bill' ? 'Add Bill' : 'Add Payment'}

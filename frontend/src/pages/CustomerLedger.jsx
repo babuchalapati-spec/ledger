@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getCustomer, updateCustomer, getEntries, ledgerPdfUrl } from '../api/client';
 import EntryForm from '../components/EntryForm';
 import LedgerTable from '../components/LedgerTable';
+import StatementImport from '../components/StatementImport';
 
 export default function CustomerLedger({ customerId }) {
   const [customer, setCustomer] = useState(null);
@@ -113,6 +114,8 @@ export default function CustomerLedger({ customerId }) {
 
       <h3>Add Ledger Entry</h3>
       <EntryForm customerId={customerId} onAdded={loadAll} />
+
+      <StatementImport customerId={customerId} onImported={loadAll} />
 
       <h3>Ledger Statement</h3>
       <LedgerTable data={ledgerData} onChanged={loadAll} />

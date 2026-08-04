@@ -8,6 +8,7 @@ const planSchema = new mongoose.Schema({
   modules: {
     groceryInventory: { type: Boolean, default: false },
     deliveries: { type: Boolean, default: false },
+    projects: { type: Boolean, default: false },
   },
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });

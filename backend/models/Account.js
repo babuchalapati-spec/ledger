@@ -8,6 +8,7 @@ const accountSchema = new mongoose.Schema({
   modules: {
     groceryInventory: { type: Boolean, default: false },
     deliveries: { type: Boolean, default: false },
+    projects: { type: Boolean, default: false },
   },
 }, { timestamps: true });
 

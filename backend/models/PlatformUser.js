@@ -9,6 +9,8 @@ const platformUserSchema = new mongoose.Schema({
   securityQuestion: { type: String, default: '' },
   securityAnswerHash: { type: String, default: '' },
   securityAnswerSalt: { type: String, default: '' },
+  resetTokenHash: { type: String, default: '' },
+  resetTokenExpiresAt: { type: Date },
 }, { timestamps: true });
 
 module.exports = mongoose.model('PlatformUser', platformUserSchema);

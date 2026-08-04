@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  getAccounts, updateAccount, clearAdminToken,
+  getAccounts, updateAccount, clearAdminToken, generateResetLink,
   getPlans, createPlan, updatePlan, deletePlan,
   getPlatformSettings, updatePlatformSettings,
 } from '../../api/client';
@@ -11,6 +11,8 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [resetLinks, setResetLinks] = useState({}); // accountId -> { link, expiresAt }
+  const [resetBusyId, setResetBusyId] = useState(null);
 
   const [plans, setPlans] = useState([]);
   const [planForm, setPlanForm] = useState(emptyPlanForm);
@@ -56,6 +58,25 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
     } catch (err) {
       setError(err.response?.data?.error || err.message);
     }
+  };
+
+  const handleGenerateResetLink = async (account) => {
+    setResetBusyId(account._id);
+    setError('');
+    try {
+      const { token, expiresAt } = await generateResetLink(account._id);
+      const link = `${window.location.origin}/reset-password?token=${token}`;
+      setResetLinks((prev) => ({ ...prev, [account._id]: { link, expiresAt } }));
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+    } finally {
+      setResetBusyId(null);
+    }
+  };
+
+  const handleCopyResetLink = (accountId) => {
+    const entry = resetLinks[accountId];
+    if (entry) navigator.clipboard?.writeText(entry.link);
   };
 
   const resetPlanForm = () => {
@@ -144,17 +165,21 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
             <thead>
               <tr>
                 <th>Business</th>
+                <th>Owner Email</th>
                 <th>Created</th>
                 <th>Trial Ends</th>
                 <th>Status</th>
                 <th>Grocery Inventory</th>
                 <th>Deliveries</th>
+                <th>Business Data</th>
+                <th>Password Reset</th>
               </tr>
             </thead>
             <tbody>
               {accounts.map((a) => (
                 <tr key={a._id}>
                   <td>{a.businessName}<div className="muted" style={{ fontSize: 12 }}>{a.dbName}</div></td>
+                  <td>{a.ownerEmail || <span className="muted">-</span>}</td>
                   <td>{fmtDate(a.createdAt)}</td>
                   <td>{a.trialEndsAt ? fmtDateTime(a.trialEndsAt) : '-'}</td>
                   <td>
@@ -171,6 +196,36 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
                   </td>
                   <td>
                     <input type="checkbox" checked={!!a.modules.deliveries} onChange={() => handleModuleToggle(a, 'deliveries')} />
+                  </td>
+                  <td style={{ fontSize: 12 }}>
+                    {a.stats ? (
+                      <>
+                        <div>{a.stats.customers} customers · {a.stats.entries} entries</div>
+                        <div>{a.stats.orders} orders · {a.stats.deliveries} deliveries</div>
+                        <div className="muted">Last activity: {a.stats.lastActivityAt ? fmtDateTime(a.stats.lastActivityAt) : 'none'}</div>
+                      </>
+                    ) : '-'}
+                  </td>
+                  <td style={{ fontSize: 12, minWidth: 180 }}>
+                    {resetLinks[a._id] ? (
+                      <>
+                        <div style={{ wordBreak: 'break-all' }}>{resetLinks[a._id].link}</div>
+                        <div className="muted">Expires {fmtDateTime(resetLinks[a._id].expiresAt)}</div>
+                        <button type="button" className="btn-secondary" style={{ padding: '2px 8px', fontSize: 12, marginTop: 4 }} onClick={() => handleCopyResetLink(a._id)}>
+                          Copy Link
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        style={{ padding: '4px 10px', fontSize: 12 }}
+                        disabled={resetBusyId === a._id}
+                        onClick={() => handleGenerateResetLink(a)}
+                      >
+                        {resetBusyId === a._id ? 'Generating...' : 'Generate Reset Link'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

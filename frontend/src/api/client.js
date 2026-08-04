@@ -81,6 +81,7 @@ export const register = (data) => api.post('/auth/register', data).then((r) => r
 export const login = (email, password) => api.post('/auth/login', { email, password }).then((r) => r.data);
 export const getSecurityQuestion = (email) => api.get('/auth/security-question', { params: { email } }).then((r) => r.data);
 export const resetPassword = (data) => api.post('/auth/reset-password', data).then((r) => r.data);
+export const resetPasswordWithLink = (data) => api.post('/auth/reset-with-link', data).then((r) => r.data);
 
 // Public: shown on the trial-expired / upgrade screen
 export const getPublicPlans = () => api.get('/auth/plans').then((r) => r.data);
@@ -98,6 +99,7 @@ export const superAdminRegister = (data) => api.post('/superadmin/register', dat
 export const superAdminLogin = (email, password) => api.post('/superadmin/login', { email, password }).then((r) => r.data);
 export const getAccounts = () => api.get('/superadmin/accounts').then((r) => r.data);
 export const updateAccount = (id, data) => api.put(`/superadmin/accounts/${id}`, data).then((r) => r.data);
+export const generateResetLink = (id) => api.post(`/superadmin/accounts/${id}/reset-link`).then((r) => r.data);
 export const getPlans = () => api.get('/superadmin/plans').then((r) => r.data);
 export const createPlan = (data) => api.post('/superadmin/plans', data).then((r) => r.data);
 export const updatePlan = (id, data) => api.put(`/superadmin/plans/${id}`, data).then((r) => r.data);

@@ -119,6 +119,34 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// Consumes a one-time reset link that Super Admin generated for a tenant who lost
+// both their password and their security answer (see routes/superadmin.js).
+router.post('/reset-with-link', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token) return res.status(400).json({ error: 'Reset link is missing its token' });
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'A new password of at least 6 characters is required' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await PlatformUser.findOne({ resetTokenHash: tokenHash });
+    if (!user || !user.resetTokenExpiresAt || user.resetTokenExpiresAt < new Date()) {
+      return res.status(400).json({ error: 'This reset link is invalid or has expired' });
+    }
+
+    const { hash, salt } = hashPassword(newPassword);
+    user.passwordHash = hash;
+    user.passwordSalt = salt;
+    user.resetTokenHash = '';
+    user.resetTokenExpiresAt = undefined;
+    await user.save();
+    res.json({ success: true, email: user.email });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Public: what a customer sees on the trial-expired / upgrade screen
 router.get('/plans', async (req, res) => {
   try {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getCustomers, createCustomer, deleteCustomer } from '../api/client';
 
-const emptyForm = { name: '', address: '', gstNumber: '', phone: '', openingBalanceAmount: '', openingBalanceType: 'due' };
+const emptyForm = { name: '', address: '', gstNumber: '', phone: '', category: '', openingBalanceAmount: '', openingBalanceType: 'due' };
 
 export default function CustomerList({ onOpenCustomer, autoOpenForm }) {
   const [customers, setCustomers] = useState([]);
@@ -53,6 +53,16 @@ export default function CustomerList({ onOpenCustomer, autoOpenForm }) {
   const totalCollected = customers.reduce((s, c) => s + (c.totalPayments || 0), 0);
   const totalOutstanding = customers.reduce((s, c) => s + Math.max(c.balance || 0, 0), 0);
 
+  const categoryGroups = Object.values(
+    customers.reduce((groups, c) => {
+      const key = c.category?.trim() || 'Uncategorized';
+      if (!groups[key]) groups[key] = { category: key, count: 0, balance: 0 };
+      groups[key].count += 1;
+      groups[key].balance += c.balance || 0;
+      return groups;
+    }, {})
+  ).sort((a, b) => a.category.localeCompare(b.category));
+
   return (
     <div className="customer-list">
       <div className="section-header">
@@ -87,6 +97,28 @@ export default function CustomerList({ onOpenCustomer, autoOpenForm }) {
         </div>
       )}
 
+      {!loading && categoryGroups.length > 1 && (
+        <div className="card">
+          <h3 style={{ margin: '0 0 10px' }}>By Category</h3>
+          <div className="table-wrap">
+            <table className="ledger-table">
+              <thead>
+                <tr><th>Category</th><th className="num">Customers</th><th className="num">Total Balance</th></tr>
+              </thead>
+              <tbody>
+                {categoryGroups.map((g) => (
+                  <tr key={g.category}>
+                    <td>{g.category}</td>
+                    <td className="num">{g.count}</td>
+                    <td className={`num ${g.balance > 0 ? 'due' : g.balance < 0 ? 'advance' : ''}`}>{fmt(g.balance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <form className="card form-grid" onSubmit={handleSubmit}>
           {error && <div className="error-banner">{error}</div>}
@@ -105,6 +137,10 @@ export default function CustomerList({ onOpenCustomer, autoOpenForm }) {
           <label>
             Phone
             <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </label>
+          <label>
+            Category
+            <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Wholesale, Retail" />
           </label>
           <label>
             Opening Balance Type
@@ -138,6 +174,7 @@ export default function CustomerList({ onOpenCustomer, autoOpenForm }) {
                 <th>Name</th>
                 <th>Address</th>
                 <th>GST Number</th>
+                <th>Category</th>
                 <th className="num">Total Bills</th>
                 <th className="num">Total Paid</th>
                 <th className="num">Balance</th>
@@ -152,6 +189,7 @@ export default function CustomerList({ onOpenCustomer, autoOpenForm }) {
                   </td>
                   <td>{c.address || '-'}</td>
                   <td>{c.gstNumber || '-'}</td>
+                  <td>{c.category || '-'}</td>
                   <td className="num">{fmt(c.totalBills)}</td>
                   <td className="num">{fmt(c.totalPayments)}</td>
                   <td className={`num ${c.balance > 0 ? 'due' : c.balance < 0 ? 'advance' : ''}`}>{fmt(c.balance)}</td>

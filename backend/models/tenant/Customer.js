@@ -5,6 +5,7 @@ const customerSchema = new mongoose.Schema({
   address: { type: String, trim: true, default: '' },
   gstNumber: { type: String, trim: true, default: '' },
   phone: { type: String, trim: true, default: '' },
+  category: { type: String, trim: true, default: '' },
   openingBalance: { type: Number, default: 0 },
 }, { timestamps: true });
 

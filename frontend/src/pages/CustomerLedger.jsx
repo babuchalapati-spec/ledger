@@ -82,6 +82,10 @@ export default function CustomerLedger({ customerId }) {
             <input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
           </label>
           <label>
+            Category
+            <input value={editForm.category || ''} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} placeholder="e.g. Wholesale, Retail" />
+          </label>
+          <label>
             Opening Balance Type
             <select value={editForm.openingBalanceType} onChange={(e) => setEditForm({ ...editForm, openingBalanceType: e.target.value })}>
               <option value="due">Cr - Customer Owes Me</option>

@@ -59,13 +59,14 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const Customer = getCustomerModel(req.tenantConn);
-    const { name, address, gstNumber, phone, openingBalance } = req.body;
+    const { name, address, gstNumber, phone, category, openingBalance } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: 'Customer name is required' });
     const customer = await Customer.create({
       name,
       address,
       gstNumber,
       phone,
+      category,
       openingBalance: Number(openingBalance) || 0,
     });
     await logActivity(req, { action: 'create', entityType: 'Customer', entityId: customer._id, summary: `Created customer "${customer.name}"` });
@@ -79,10 +80,10 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const Customer = getCustomerModel(req.tenantConn);
-    const { name, address, gstNumber, phone, openingBalance } = req.body;
+    const { name, address, gstNumber, phone, category, openingBalance } = req.body;
     const customer = await Customer.findByIdAndUpdate(
       req.params.id,
-      { name, address, gstNumber, phone, openingBalance: Number(openingBalance) || 0 },
+      { name, address, gstNumber, phone, category, openingBalance: Number(openingBalance) || 0 },
       { new: true, runValidators: true }
     );
     if (!customer) return res.status(404).json({ error: 'Customer not found' });

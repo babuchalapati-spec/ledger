@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getAccountUsers, addAccountUser, deleteAccountUser } from '../api/client';
+import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getAccountUsers, addAccountUser, deleteAccountUser, updateAccountUserRole } from '../api/client';
 
 const emptyUserForm = { email: '', password: '', confirmPassword: '', securityQuestion: '', securityAnswer: '' };
 
-export default function Settings({ onSaved, onChangeServer }) {
+export default function Settings({ onSaved, onChangeServer, role }) {
   const [form, setForm] = useState({ businessName: '', address: '', gstNumber: '', phone: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -18,6 +18,7 @@ export default function Settings({ onSaved, onChangeServer }) {
   const [userError, setUserError] = useState('');
 
   const loadUsers = () => {
+    if (role !== 'owner') return;
     getAccountUsers().then(setUsers).catch(() => {});
   };
 
@@ -93,6 +94,18 @@ export default function Settings({ onSaved, onChangeServer }) {
     }
   };
 
+  const handleRoleChange = async (email, newRole) => {
+    setUserError('');
+    setUserSaved('');
+    try {
+      await updateAccountUserRole(email, newRole);
+      setUserSaved(`"${email}" is now ${newRole === 'owner' ? 'an owner' : 'staff'}.`);
+      loadUsers();
+    } catch (err) {
+      setUserError(err.response?.data?.error || err.message);
+    }
+  };
+
   if (loading) return <p>Loading settings...</p>;
 
   return (
@@ -127,10 +140,12 @@ export default function Settings({ onSaved, onChangeServer }) {
         </button>
       </form>
 
+      {role === 'owner' && (
       <div className="card">
-        <h3 style={{ margin: '0 0 10px' }}>🔒 Logins</h3>
+        <h3 style={{ margin: '0 0 10px' }}>🔒 Logins & Roles</h3>
         <p className="muted" style={{ marginBottom: 14 }}>
           Anyone listed below can log into this business account with their email and password.
+          Owners can manage staff, settings, and see the Staff Activity log; staff cannot.
         </p>
 
         {users.length > 0 && (
@@ -143,7 +158,12 @@ export default function Settings({ onSaved, onChangeServer }) {
                 {users.map((u) => (
                   <tr key={u.email}>
                     <td>{u.email}</td>
-                    <td style={{ textTransform: 'capitalize' }}>{u.role}</td>
+                    <td>
+                      <select value={u.role} onChange={(e) => handleRoleChange(u.email, e.target.value)}>
+                        <option value="owner">Owner</option>
+                        <option value="staff">Staff</option>
+                      </select>
+                    </td>
                     <td><button className="btn-danger-sm" onClick={() => handleDeleteUser(u.email)}>Remove</button></td>
                   </tr>
                 ))}
@@ -184,6 +204,7 @@ export default function Settings({ onSaved, onChangeServer }) {
           </button>
         </form>
       </div>
+      )}
 
       {isMobileApp() && (
         <div className="card">

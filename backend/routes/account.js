@@ -39,7 +39,7 @@ router.get('/sessions', requireAuth, requireOwner, async (req, res) => {
   }
 });
 
-router.get('/users', requireAuth, async (req, res) => {
+router.get('/users', requireAuth, requireOwner, async (req, res) => {
   try {
     const users = await PlatformUser.find({ account: req.user.accountId }).select('email role createdAt').sort({ email: 1 }).lean();
     res.json(users);
@@ -49,7 +49,7 @@ router.get('/users', requireAuth, async (req, res) => {
 });
 
 // Add another login (staff account) to the current business account
-router.post('/users', requireAuth, async (req, res) => {
+router.post('/users', requireAuth, requireOwner, async (req, res) => {
   try {
     const { email, password, securityQuestion, securityAnswer } = req.body;
     const cleanEmail = normalizeEmail(email);
@@ -79,7 +79,7 @@ router.post('/users', requireAuth, async (req, res) => {
   }
 });
 
-router.delete('/users/:email', requireAuth, async (req, res) => {
+router.delete('/users/:email', requireAuth, requireOwner, async (req, res) => {
   try {
     const remaining = await PlatformUser.countDocuments({ account: req.user.accountId, email: { $ne: req.params.email } });
     if (remaining === 0) return res.status(400).json({ error: 'At least one login is required for this account' });
@@ -87,6 +87,28 @@ router.delete('/users/:email', requireAuth, async (req, res) => {
     const deleted = await PlatformUser.findOneAndDelete({ account: req.user.accountId, email: req.params.email });
     if (!deleted) return res.status(404).json({ error: 'User not found' });
     res.json({ message: 'User removed' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Promote/demote a login between 'owner' and 'staff'
+router.put('/users/:email', requireAuth, requireOwner, async (req, res) => {
+  try {
+    const { role } = req.body;
+    if (!['owner', 'staff'].includes(role)) return res.status(400).json({ error: 'role must be owner or staff' });
+
+    const user = await PlatformUser.findOne({ account: req.user.accountId, email: req.params.email });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (user.role === 'owner' && role === 'staff') {
+      const otherOwners = await PlatformUser.countDocuments({ account: req.user.accountId, role: 'owner', email: { $ne: user.email } });
+      if (otherOwners === 0) return res.status(400).json({ error: 'At least one owner is required for this account' });
+    }
+
+    user.role = role;
+    await user.save();
+    res.json({ email: user.email, role: user.role });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

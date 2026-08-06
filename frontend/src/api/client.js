@@ -100,6 +100,7 @@ export const getAccountMe = () => api.get('/account/me').then((r) => r.data);
 export const getAccountUsers = () => api.get('/account/users').then((r) => r.data);
 export const addAccountUser = (data) => api.post('/account/users', data).then((r) => r.data);
 export const deleteAccountUser = (email) => api.delete(`/account/users/${encodeURIComponent(email)}`).then((r) => r.data);
+export const updateAccountUserRole = (email, role) => api.put(`/account/users/${encodeURIComponent(email)}`, { role }).then((r) => r.data);
 export const getLoginSessions = () => api.get('/account/sessions').then((r) => r.data);
 
 // Staff activity (audit) log — owner-only

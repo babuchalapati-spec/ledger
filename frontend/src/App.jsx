@@ -160,7 +160,7 @@ function App() {
 
       <main className="app-main">
         {view === 'settings' && (
-          <Settings onSaved={handleSettingsSaved} onChangeServer={() => setMobileConnected(false)} />
+          <Settings onSaved={handleSettingsSaved} onChangeServer={() => setMobileConnected(false)} role={role} />
         )}
         {view === 'activity' && role === 'owner' && <StaffActivity />}
         {view === 'home' && (

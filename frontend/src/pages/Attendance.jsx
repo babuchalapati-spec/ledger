@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { checkInAttendance, getTodayAttendance, getAttendanceRegister, getAccountUsers, fileUrl } from '../api/client';
+import { checkInAttendance, getTodayAttendance, getAttendanceRegister, getAccountUsers, getSalaryReport, fileUrl } from '../api/client';
+
+const currentMonth = () => new Date().toISOString().slice(0, 7);
 
 function formatDateTime(value) {
   if (!value) return '—';
@@ -162,6 +164,61 @@ function RegisterTable() {
   );
 }
 
+function SalaryReport() {
+  const [month, setMonth] = useState(currentMonth());
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    getSalaryReport(month)
+      .then(setData)
+      .catch((err) => setError(err.response?.data?.error || err.message))
+      .finally(() => setLoading(false));
+  }, [month]);
+
+  return (
+    <div className="card">
+      <h3 style={{ margin: '0 0 10px' }}>💰 Salary</h3>
+      <p className="muted" style={{ marginBottom: 14 }}>
+        Calculated as (days present ÷ days in month) × monthly salary. Set each person's monthly salary in Settings.
+      </p>
+      <label style={{ display: 'inline-block', marginBottom: 14 }}>
+        Month
+        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+      </label>
+
+      {loading ? (
+        <p>Loading...</p>
+      ) : error ? (
+        <div className="error-banner">{error}</div>
+      ) : !data.report.length ? (
+        <p className="muted">No logins to show.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="ledger-table">
+            <thead>
+              <tr><th>Staff</th><th>Monthly Salary</th><th>Working Days</th><th>Days Present</th><th>Calculated Salary</th></tr>
+            </thead>
+            <tbody>
+              {data.report.map((r) => (
+                <tr key={r.email}>
+                  <td>{r.email} <span className="muted" style={{ textTransform: 'capitalize' }}>({r.role})</span></td>
+                  <td>₹{r.monthlySalary}</td>
+                  <td>{r.workingDays}</td>
+                  <td>{r.daysPresent}</td>
+                  <td><strong>₹{r.calculatedSalary}</strong></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Attendance({ role }) {
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -172,6 +229,7 @@ export default function Attendance({ role }) {
       </div>
       <CheckInCard onCheckedIn={() => setRefreshKey((k) => k + 1)} />
       {role === 'owner' && <RegisterTable key={refreshKey} />}
+      {role === 'owner' && <SalaryReport />}
     </div>
   );
 }

@@ -101,6 +101,7 @@ export const getAccountUsers = () => api.get('/account/users').then((r) => r.dat
 export const addAccountUser = (data) => api.post('/account/users', data).then((r) => r.data);
 export const deleteAccountUser = (email) => api.delete(`/account/users/${encodeURIComponent(email)}`).then((r) => r.data);
 export const updateAccountUserRole = (email, role) => api.put(`/account/users/${encodeURIComponent(email)}`, { role }).then((r) => r.data);
+export const updateAccountUserSalary = (email, monthlySalary) => api.put(`/account/users/${encodeURIComponent(email)}`, { monthlySalary }).then((r) => r.data);
 export const getLoginSessions = () => api.get('/account/sessions').then((r) => r.data);
 
 // Staff activity (audit) log — owner-only
@@ -111,6 +112,7 @@ export const checkInAttendance = (formData) =>
   api.post('/attendance/check-in', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
 export const getTodayAttendance = () => api.get('/attendance/today').then((r) => r.data);
 export const getAttendanceRegister = (params) => api.get('/attendance', { params }).then((r) => r.data);
+export const getSalaryReport = (month) => api.get('/attendance/salary', { params: { month } }).then((r) => r.data);
 
 // Super Admin
 export const superAdminExists = () => api.get('/superadmin/exists').then((r) => r.data);

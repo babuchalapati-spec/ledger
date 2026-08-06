@@ -41,7 +41,7 @@ router.get('/sessions', requireAuth, requireOwner, async (req, res) => {
 
 router.get('/users', requireAuth, requireOwner, async (req, res) => {
   try {
-    const users = await PlatformUser.find({ account: req.user.accountId }).select('email role createdAt').sort({ email: 1 }).lean();
+    const users = await PlatformUser.find({ account: req.user.accountId }).select('email role monthlySalary createdAt').sort({ email: 1 }).lean();
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -92,23 +92,31 @@ router.delete('/users/:email', requireAuth, requireOwner, async (req, res) => {
   }
 });
 
-// Promote/demote a login between 'owner' and 'staff'
+// Promote/demote a login between 'owner' and 'staff', and/or set their monthly salary
 router.put('/users/:email', requireAuth, requireOwner, async (req, res) => {
   try {
-    const { role } = req.body;
-    if (!['owner', 'staff'].includes(role)) return res.status(400).json({ error: 'role must be owner or staff' });
+    const { role, monthlySalary } = req.body;
+    if (role !== undefined && !['owner', 'staff'].includes(role)) {
+      return res.status(400).json({ error: 'role must be owner or staff' });
+    }
+    if (monthlySalary !== undefined && !(Number(monthlySalary) >= 0)) {
+      return res.status(400).json({ error: 'monthlySalary must be a non-negative number' });
+    }
 
     const user = await PlatformUser.findOne({ account: req.user.accountId, email: req.params.email });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    if (user.role === 'owner' && role === 'staff') {
-      const otherOwners = await PlatformUser.countDocuments({ account: req.user.accountId, role: 'owner', email: { $ne: user.email } });
-      if (otherOwners === 0) return res.status(400).json({ error: 'At least one owner is required for this account' });
+    if (role !== undefined) {
+      if (user.role === 'owner' && role === 'staff') {
+        const otherOwners = await PlatformUser.countDocuments({ account: req.user.accountId, role: 'owner', email: { $ne: user.email } });
+        if (otherOwners === 0) return res.status(400).json({ error: 'At least one owner is required for this account' });
+      }
+      user.role = role;
     }
+    if (monthlySalary !== undefined) user.monthlySalary = Number(monthlySalary);
 
-    user.role = role;
     await user.save();
-    res.json({ email: user.email, role: user.role });
+    res.json({ email: user.email, role: user.role, monthlySalary: user.monthlySalary });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

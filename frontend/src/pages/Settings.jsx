@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getAccountUsers, addAccountUser, deleteAccountUser, updateAccountUserRole } from '../api/client';
+import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getAccountUsers, addAccountUser, deleteAccountUser, updateAccountUserRole, updateAccountUserSalary } from '../api/client';
 
 const emptyUserForm = { email: '', password: '', confirmPassword: '', securityQuestion: '', securityAnswer: '' };
 
@@ -139,6 +139,20 @@ export default function Settings({ onSaved, onChangeServer, role }) {
     }
   };
 
+  const handleSalaryInput = (email, value) => {
+    setUsers((prev) => prev.map((u) => (u.email === email ? { ...u, monthlySalary: value } : u)));
+  };
+
+  const handleSalarySave = async (email, value) => {
+    setUserError('');
+    try {
+      await updateAccountUserSalary(email, Number(value) || 0);
+    } catch (err) {
+      setUserError(err.response?.data?.error || err.message);
+      loadUsers();
+    }
+  };
+
   if (loading) return <p>Loading settings...</p>;
 
   return (
@@ -186,7 +200,7 @@ export default function Settings({ onSaved, onChangeServer, role }) {
           <div className="table-wrap" style={{ marginBottom: 16 }}>
             <table className="ledger-table">
               <thead>
-                <tr><th>Email</th><th>Role</th><th></th></tr>
+                <tr><th>Email</th><th>Role</th><th>Monthly Salary (₹)</th><th></th></tr>
               </thead>
               <tbody>
                 {users.map((u) => (
@@ -197,6 +211,17 @@ export default function Settings({ onSaved, onChangeServer, role }) {
                         <option value="owner">Owner</option>
                         <option value="staff">Staff</option>
                       </select>
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        style={{ width: 100 }}
+                        value={u.monthlySalary ?? 0}
+                        onChange={(e) => handleSalaryInput(u.email, e.target.value)}
+                        onBlur={(e) => handleSalarySave(u.email, e.target.value)}
+                      />
                     </td>
                     <td><button className="btn-danger-sm" onClick={() => handleDeleteUser(u.email)}>Remove</button></td>
                   </tr>

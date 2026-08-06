@@ -4,7 +4,8 @@ const fs = require('fs');
 const multer = require('multer');
 const router = express.Router();
 const getAttendanceModel = require('../models/tenant/Attendance');
-const { requireAuth } = require('../middleware/auth');
+const PlatformUser = require('../models/PlatformUser');
+const { requireAuth, requireOwner } = require('../middleware/auth');
 const { logActivity } = require('../utils/activityLog');
 const { todayIST } = require('../utils/istTime');
 
@@ -92,6 +93,39 @@ router.get('/', async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 200, 500);
     const records = await Attendance.find(filter).sort({ date: -1, checkedInAt: -1 }).limit(limit).lean();
     res.json(records);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Salary for each staff login for a given month, prorated by attendance. Owner-only.
+router.get('/salary', requireOwner, async (req, res) => {
+  try {
+    const month = /^\d{4}-\d{2}$/.test(req.query.month) ? req.query.month : todayIST().slice(0, 7);
+    const [year, monthNum] = month.split('-').map(Number);
+    const workingDays = new Date(year, monthNum, 0).getDate();
+
+    const users = await PlatformUser.find({ account: req.user.accountId }).select('email role monthlySalary').lean();
+
+    const Attendance = getAttendanceModel(req.tenantConn);
+    const records = await Attendance.find({ date: { $gte: `${month}-01`, $lte: `${month}-31` } }).select('userEmail').lean();
+    const daysPresentByEmail = {};
+    records.forEach((r) => { daysPresentByEmail[r.userEmail] = (daysPresentByEmail[r.userEmail] || 0) + 1; });
+
+    const report = users.map((u) => {
+      const daysPresent = daysPresentByEmail[u.email] || 0;
+      const monthlySalary = u.monthlySalary || 0;
+      return {
+        email: u.email,
+        role: u.role,
+        monthlySalary,
+        workingDays,
+        daysPresent,
+        calculatedSalary: Math.round((daysPresent / workingDays) * monthlySalary),
+      };
+    });
+
+    res.json({ month, workingDays, report });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

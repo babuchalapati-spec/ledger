@@ -5,7 +5,9 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const mongoose = require('mongoose');
+const cron = require('node-cron');
 const { withDbName } = require('./db/tenantConnections');
+const { runAbsenceCheck } = require('./jobs/attendanceAbsence');
 
 const customerRoutes = require('./routes/customers');
 const entryRoutes = require('./routes/entries');
@@ -19,6 +21,7 @@ const orderRoutes = require('./routes/orders');
 const deliveryRoutes = require('./routes/deliveries');
 const projectRoutes = require('./routes/projects');
 const activityRoutes = require('./routes/activity');
+const attendanceRoutes = require('./routes/attendance');
 
 const app = express();
 const PORT = process.env.PORT || 8811;
@@ -45,6 +48,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -84,8 +88,13 @@ app.use((err, req, res, next) => {
 // database, opened on demand via db/tenantConnections.js.
 mongoose.connect(MASTER_URI)
   .then(() => {
-    console.log('Connected to master DB at', MASTER_URI);
+    console.log('Connected to master DB');
     app.listen(PORT, () => console.log(`Ledger backend running on http://localhost:${PORT}`));
+    // Checks every active tenant for unmarked attendance past their cutoff time;
+    // each tenant is only ever actually processed once per day (see attendanceAbsence.js).
+    cron.schedule('*/15 * * * *', () => {
+      runAbsenceCheck().catch((err) => console.error('runAbsenceCheck failed:', err.message));
+    });
   })
   .catch((err) => {
     console.error('MongoDB connection failed:', err.message);

@@ -748,3 +748,26 @@ h3 {
 .activity-feed-time {
   font-size: 0.8em;
 }
+
+.attendance-nudge-banner {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md, var(--shadow-sm));
+  padding: 14px 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.attendance-nudge-banner span {
+  flex: 1 1 220px;
+}

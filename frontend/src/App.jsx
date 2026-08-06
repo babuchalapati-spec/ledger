@@ -6,8 +6,10 @@ import Inventory from './pages/Inventory';
 import Deliveries from './pages/Deliveries';
 import Projects from './pages/Projects';
 import DeliveryReminder from './components/DeliveryReminder';
+import AttendanceNudge from './components/AttendanceNudge';
 import Settings from './pages/Settings';
 import StaffActivity from './pages/StaffActivity';
+import Attendance from './pages/Attendance';
 import ServerConnect from './pages/ServerConnect';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -16,7 +18,7 @@ import { getSettings, getAccountMe, isMobileApp, getServerUrl, getToken, clearTo
 import './App.css';
 
 function App() {
-  const [view, setView] = useState('home'); // 'home' | 'list' | 'ledger' | 'settings' | 'inventory' | 'deliveries' | 'projects' | 'activity'
+  const [view, setView] = useState('home'); // 'home' | 'list' | 'ledger' | 'settings' | 'inventory' | 'deliveries' | 'projects' | 'activity' | 'attendance'
   const [authView, setAuthView] = useState('login'); // 'login' | 'register', shown when logged out
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [autoOpenForm, setAutoOpenForm] = useState(false);
@@ -132,6 +134,7 @@ function App() {
   return (
     <div className="app">
       {modules.deliveries && <DeliveryReminder />}
+      <AttendanceNudge onOpenAttendance={() => setView('attendance')} />
       <header className="app-header">
         <h1 onClick={goHome} style={{ cursor: 'pointer' }}>
           {businessName || 'Ledger Records'}
@@ -140,6 +143,11 @@ function App() {
           {view !== 'home' && (
             <button className="btn-link" onClick={goBack}>
               &larr; Back
+            </button>
+          )}
+          {view !== 'attendance' && (
+            <button className="btn-secondary" onClick={() => setView('attendance')}>
+              🕐 Attendance
             </button>
           )}
           {role === 'owner' && view !== 'activity' && (
@@ -163,6 +171,7 @@ function App() {
           <Settings onSaved={handleSettingsSaved} onChangeServer={() => setMobileConnected(false)} role={role} />
         )}
         {view === 'activity' && role === 'owner' && <StaffActivity />}
+        {view === 'attendance' && <Attendance role={role} />}
         {view === 'home' && (
           <Home
             onViewLedgers={() => { setAutoOpenForm(false); setView('list'); }}

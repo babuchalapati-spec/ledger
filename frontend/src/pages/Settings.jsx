@@ -3,13 +3,20 @@ import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getAccount
 
 const emptyUserForm = { email: '', password: '', confirmPassword: '', securityQuestion: '', securityAnswer: '' };
 
+const emptySettingsForm = {
+  businessName: '', address: '', gstNumber: '', phone: '',
+  premisesLat: '', premisesLng: '', premisesRadiusMeters: 200, attendanceCutoffTime: '',
+};
+
 export default function Settings({ onSaved, onChangeServer, role }) {
-  const [form, setForm] = useState({ businessName: '', address: '', gstNumber: '', phone: '' });
+  const [form, setForm] = useState(emptySettingsForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [networkInfo, setNetworkInfo] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState('');
 
   const [users, setUsers] = useState([]);
   const [userForm, setUserForm] = useState(emptyUserForm);
@@ -24,7 +31,13 @@ export default function Settings({ onSaved, onChangeServer, role }) {
 
   useEffect(() => {
     getSettings()
-      .then(setForm)
+      .then((s) => setForm({
+        ...emptySettingsForm,
+        ...s,
+        premisesLat: s.premisesLat ?? '',
+        premisesLng: s.premisesLng ?? '',
+        premisesRadiusMeters: s.premisesRadiusMeters ?? 200,
+      }))
       .catch((err) => setError(err.response?.data?.error || err.message))
       .finally(() => setLoading(false));
 
@@ -94,6 +107,26 @@ export default function Settings({ onSaved, onChangeServer, role }) {
     }
   };
 
+  const handleUseLocation = () => {
+    if (!navigator.geolocation) {
+      setLocateError('Location is not available in this browser');
+      return;
+    }
+    setLocating(true);
+    setLocateError('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm((f) => ({ ...f, premisesLat: pos.coords.latitude, premisesLng: pos.coords.longitude }));
+        setLocating(false);
+      },
+      (err) => {
+        setLocateError(err.message || 'Could not get your location');
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleRoleChange = async (email, newRole) => {
     setUserError('');
     setUserSaved('');
@@ -141,6 +174,7 @@ export default function Settings({ onSaved, onChangeServer, role }) {
       </form>
 
       {role === 'owner' && (
+      <>
       <div className="card">
         <h3 style={{ margin: '0 0 10px' }}>🔒 Logins & Roles</h3>
         <p className="muted" style={{ marginBottom: 14 }}>
@@ -204,6 +238,40 @@ export default function Settings({ onSaved, onChangeServer, role }) {
           </button>
         </form>
       </div>
+
+      <div className="card">
+        <h3 style={{ margin: '0 0 10px' }}>📍 Attendance Settings</h3>
+        <p className="muted" style={{ marginBottom: 14 }}>
+          Set your shop's location so the app can nudge staff to mark attendance when they arrive,
+          and a cutoff time after which unmarked staff get texted to you as absent.
+        </p>
+        <form className="form-grid" onSubmit={handleSubmit}>
+          {locateError && <div className="error-banner">{locateError}</div>}
+          <button type="button" className="btn-secondary" onClick={handleUseLocation} disabled={locating} style={{ justifySelf: 'start' }}>
+            {locating ? 'Locating...' : '📍 Use My Current Location'}
+          </button>
+          <label>
+            Premises Latitude
+            <input type="number" step="any" value={form.premisesLat} onChange={(e) => setForm({ ...form, premisesLat: e.target.value })} />
+          </label>
+          <label>
+            Premises Longitude
+            <input type="number" step="any" value={form.premisesLng} onChange={(e) => setForm({ ...form, premisesLng: e.target.value })} />
+          </label>
+          <label>
+            Radius (meters)
+            <input type="number" min="10" step="10" value={form.premisesRadiusMeters} onChange={(e) => setForm({ ...form, premisesRadiusMeters: e.target.value })} />
+          </label>
+          <label>
+            Mark Absent If Not Checked In By
+            <input type="time" value={form.attendanceCutoffTime} onChange={(e) => setForm({ ...form, attendanceCutoffTime: e.target.value })} />
+          </label>
+          <button className="btn-primary" type="submit" disabled={saving}>
+            {saving ? 'Saving...' : 'Save Settings'}
+          </button>
+        </form>
+      </div>
+      </>
       )}
 
       {isMobileApp() && (

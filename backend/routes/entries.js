@@ -72,6 +72,15 @@ function deleteUploadedFiles(files) {
   });
 }
 
+// A bill number identifies one invoice for the whole business, so it must be
+// unique across all customers, not just within one customer's ledger.
+async function findDuplicateBillNumber(Entry, billNumber, excludeId) {
+  if (!billNumber || !billNumber.trim()) return null;
+  const filter = { type: 'bill', billNumber: billNumber.trim() };
+  if (excludeId) filter._id = { $ne: excludeId };
+  return Entry.findOne(filter).lean();
+}
+
 // Create entry (bill or payment) with optional document uploads
 router.post('/', upload.array('documents', 5), async (req, res) => {
   try {
@@ -84,6 +93,10 @@ router.post('/', upload.array('documents', 5), async (req, res) => {
     if (!['bill', 'payment'].includes(type)) {
       deleteUploadedFiles(req.files);
       return res.status(400).json({ error: 'type must be bill or payment' });
+    }
+    if (type === 'bill' && (await findDuplicateBillNumber(Entry, billNumber))) {
+      deleteUploadedFiles(req.files);
+      return res.status(409).json({ error: `Bill number "${billNumber}" is already used by another entry` });
     }
 
     const documents = (req.files || []).map((f) => ({
@@ -146,9 +159,20 @@ router.post('/bulk', async (req, res) => {
     if (!customer || !Array.isArray(entries) || entries.length === 0) {
       return res.status(400).json({ error: 'customer and a non-empty entries array are required' });
     }
+    const seenBillNumbers = new Set();
     for (const e of entries) {
       if (!e.date || !e.type || !['bill', 'payment'].includes(e.type) || !(Number(e.amount) > 0)) {
         return res.status(400).json({ error: 'Each entry needs a date, a valid type, and a positive amount' });
+      }
+      if (e.type === 'bill' && e.billNumber && e.billNumber.trim()) {
+        const num = e.billNumber.trim();
+        if (seenBillNumbers.has(num)) {
+          return res.status(409).json({ error: `Bill number "${num}" appears more than once in this batch` });
+        }
+        seenBillNumbers.add(num);
+        if (await findDuplicateBillNumber(Entry, num)) {
+          return res.status(409).json({ error: `Bill number "${num}" is already used by another entry` });
+        }
       }
     }
 
@@ -191,6 +215,10 @@ router.put('/:id', upload.array('documents', 5), async (req, res) => {
     if (type) entry.type = type;
     if (description !== undefined) entry.description = description;
     if (billNumber !== undefined) entry.billNumber = entry.type === 'bill' ? billNumber : '';
+    if (entry.type === 'bill' && (await findDuplicateBillNumber(Entry, entry.billNumber, entry._id))) {
+      deleteUploadedFiles(req.files);
+      return res.status(409).json({ error: `Bill number "${entry.billNumber}" is already used by another entry` });
+    }
     if (amount !== undefined) entry.amount = Number(amount);
     entry.paymentMode = entry.type === 'payment' ? (paymentMode || '') : '';
     if (entry.type !== 'bill') entry.billNumber = '';

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { checkInAttendance, getTodayAttendance, getAttendanceRegister, getAccountUsers, getSalaryReport, payslipViewUrl, payslipDownloadUrl, fileUrl } from '../api/client';
+import { checkInAttendance, getTodayAttendance, getAttendanceRegister, getAccountUsers, getSalaryReport, payslipViewUrl, payslipDownloadUrl, notifySalaryByEmail, fileUrl } from '../api/client';
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 
@@ -169,6 +169,7 @@ function SalaryReport() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notifyStatus, setNotifyStatus] = useState({}); // email -> 'sending' | 'sent' | error message
 
   useEffect(() => {
     setLoading(true);
@@ -177,6 +178,16 @@ function SalaryReport() {
       .catch((err) => setError(err.response?.data?.error || err.message))
       .finally(() => setLoading(false));
   }, [month]);
+
+  const handleNotify = async (email) => {
+    setNotifyStatus((s) => ({ ...s, [email]: 'sending' }));
+    try {
+      await notifySalaryByEmail(email, month);
+      setNotifyStatus((s) => ({ ...s, [email]: 'sent' }));
+    } catch (err) {
+      setNotifyStatus((s) => ({ ...s, [email]: err.response?.data?.error || err.message }));
+    }
+  };
 
   return (
     <div className="card">
@@ -199,7 +210,7 @@ function SalaryReport() {
         <div className="table-wrap">
           <table className="ledger-table">
             <thead>
-              <tr><th>Staff</th><th>Monthly Salary</th><th>Working Days</th><th>Days Present</th><th>Calculated Salary</th><th>Payslip</th></tr>
+              <tr><th>Staff</th><th>Monthly Salary</th><th>Working Days</th><th>Days Present</th><th>Calculated Salary</th><th>Payslip</th><th>Notify</th></tr>
             </thead>
             <tbody>
               {data.report.map((r) => (
@@ -213,6 +224,20 @@ function SalaryReport() {
                     <a href={payslipViewUrl(r.email, month)} target="_blank" rel="noreferrer" className="doc-link">View</a>
                     {' · '}
                     <a href={payslipDownloadUrl(r.email, month)} target="_blank" rel="noreferrer" className="doc-link">Download</a>
+                  </td>
+                  <td>
+                    <button
+                      className="btn-secondary"
+                      style={{ padding: '4px 10px', fontSize: 12 }}
+                      disabled={notifyStatus[r.email] === 'sending'}
+                      onClick={() => handleNotify(r.email)}
+                    >
+                      {notifyStatus[r.email] === 'sending' ? 'Sending...' : '📩 Send SMS'}
+                    </button>
+                    {notifyStatus[r.email] === 'sent' && <div className="success-banner" style={{ marginTop: 4, padding: '2px 6px', fontSize: 11 }}>Sent</div>}
+                    {notifyStatus[r.email] && !['sending', 'sent'].includes(notifyStatus[r.email]) && (
+                      <div className="error-banner" style={{ marginTop: 4, padding: '2px 6px', fontSize: 11 }}>{notifyStatus[r.email]}</div>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -118,6 +118,7 @@ export const payslipViewUrl = (email, month) =>
   `${API_ORIGIN}/api/attendance/payslip/${encodeURIComponent(email)}/pdf?month=${month}&token=${encodeURIComponent(getToken() || '')}`;
 export const payslipDownloadUrl = (email, month) =>
   `${API_ORIGIN}/api/attendance/payslip/${encodeURIComponent(email)}/pdf?month=${month}&download=1&token=${encodeURIComponent(getToken() || '')}`;
+export const notifySalaryByEmail = (email, month) => api.post(`/attendance/salary/${encodeURIComponent(email)}/notify`, { month }).then((r) => r.data);
 
 // Super Admin
 export const superAdminExists = () => api.get('/superadmin/exists').then((r) => r.data);

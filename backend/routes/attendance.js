@@ -10,6 +10,7 @@ const { requireAuth, requireOwner } = require('../middleware/auth');
 const { logActivity } = require('../utils/activityLog');
 const { todayIST } = require('../utils/istTime');
 const { generatePayslipPdf } = require('../utils/generatePayslipPdf');
+const { sendSms } = require('../utils/sms');
 
 function resolveMonth(queryMonth) {
   return /^\d{4}-\d{2}$/.test(queryMonth) ? queryMonth : todayIST().slice(0, 7);
@@ -22,6 +23,34 @@ function workingDaysFor(month) {
 
 function calcSalary({ monthlySalary, daysPresent, workingDays }) {
   return Math.round((daysPresent / workingDays) * (monthlySalary || 0));
+}
+
+function fmtMonth(month) {
+  const [year, monthNum] = month.split('-').map(Number);
+  return new Date(year, monthNum - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+}
+
+// Salary summary for one staff login for a given month. Used by both the payslip PDF and the notify-by-SMS routes.
+async function getSalarySummaryForUser(req, email, month) {
+  const user = await PlatformUser.findOne({ account: req.user.accountId, email }).lean();
+  if (!user) return null;
+
+  const workingDays = workingDaysFor(month);
+  const Attendance = getAttendanceModel(req.tenantConn);
+  const records = await Attendance.find({ userEmail: user.email, date: { $gte: `${month}-01`, $lte: `${month}-31` } })
+    .sort({ date: 1 }).select('date').lean();
+  const presentDates = records.map((r) => r.date);
+  const daysPresent = presentDates.length;
+  const monthlySalary = user.monthlySalary || 0;
+
+  return {
+    user,
+    presentDates,
+    workingDays,
+    daysPresent,
+    monthlySalary,
+    calculatedSalary: calcSalary({ monthlySalary, daysPresent, workingDays }),
+  };
 }
 
 router.use(requireAuth);
@@ -148,33 +177,48 @@ router.get('/salary', requireOwner, async (req, res) => {
 // Printable payslip PDF for one staff login for a given month. Owner-only.
 router.get('/payslip/:email/pdf', requireOwner, async (req, res) => {
   try {
-    const user = await PlatformUser.findOne({ account: req.user.accountId, email: req.params.email }).lean();
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
     const month = resolveMonth(req.query.month);
-    const workingDays = workingDaysFor(month);
-
-    const Attendance = getAttendanceModel(req.tenantConn);
-    const records = await Attendance.find({ userEmail: user.email, date: { $gte: `${month}-01`, $lte: `${month}-31` } })
-      .sort({ date: 1 }).select('date').lean();
-    const presentDates = records.map((r) => r.date);
-    const daysPresent = presentDates.length;
-    const monthlySalary = user.monthlySalary || 0;
+    const summary = await getSalarySummaryForUser(req, req.params.email, month);
+    if (!summary) return res.status(404).json({ error: 'User not found' });
 
     const Settings = getSettingsModel(req.tenantConn);
     const business = await Settings.findOne().lean();
 
     const download = req.query.download === '1';
-    const filename = `payslip-${user.email}-${month}.pdf`;
+    const filename = `payslip-${summary.user.email}-${month}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `${download ? 'attachment' : 'inline'}; filename="${filename}"`);
 
     generatePayslipPdf({
       business,
       month,
-      summary: { email: user.email, role: user.role, monthlySalary, workingDays, daysPresent, calculatedSalary: calcSalary({ monthlySalary, daysPresent, workingDays }) },
-      presentDates,
+      summary: {
+        email: summary.user.email, role: summary.user.role, monthlySalary: summary.monthlySalary,
+        workingDays: summary.workingDays, daysPresent: summary.daysPresent, calculatedSalary: summary.calculatedSalary,
+      },
+      presentDates: summary.presentDates,
     }, res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Texts one staff member their calculated salary for a given month. Owner-only.
+router.post('/salary/:email/notify', requireOwner, async (req, res) => {
+  try {
+    const month = resolveMonth(req.body.month || req.query.month);
+    const summary = await getSalarySummaryForUser(req, req.params.email, month);
+    if (!summary) return res.status(404).json({ error: 'User not found' });
+    if (!summary.user.phone) return res.status(400).json({ error: 'No phone number is set for this staff member' });
+
+    const Settings = getSettingsModel(req.tenantConn);
+    const settings = await Settings.findOne().lean();
+    const businessName = settings?.businessName || 'your business';
+
+    const message = `Your salary for ${fmtMonth(month)}: Rs. ${summary.calculatedSalary} (${summary.daysPresent}/${summary.workingDays} days present) - ${businessName}.`;
+    await sendSms(summary.user.phone, message);
+
+    res.json({ sent: true, phone: summary.user.phone });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

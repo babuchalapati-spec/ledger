@@ -3,6 +3,19 @@ import { deleteEntry, updateEntry, fileUrl, getEntryCategories } from '../api/cl
 
 const fmt = (n) => (n ? Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
 const fmtDate = (d) => new Date(d).toLocaleDateString('en-IN');
+const fmtQty = (e) => (e.type === 'bill' && e.quantity != null ? `${e.quantity}${e.unit ? ' ' + e.unit : ''}` : '-');
+
+// Sums quantity per unit across a group's bill entries, e.g. "60 bags, 3 tons".
+function qtyTotalsFor(groupEntries) {
+  const totals = {};
+  groupEntries.forEach((e) => {
+    if (e.type === 'bill' && e.quantity != null) {
+      const key = e.unit || '';
+      totals[key] = (totals[key] || 0) + e.quantity;
+    }
+  });
+  return Object.entries(totals).map(([unit, qty]) => `${qty}${unit ? ' ' + unit : ''}`).join(', ');
+}
 
 export default function LedgerTable({ data, onChanged }) {
   const { entries = [], openingBalance = 0, totalBills = 0, totalPayments = 0, balance = 0 } = data || {};
@@ -29,6 +42,8 @@ export default function LedgerTable({ data, onChanged }) {
       description: e.description || '',
       billNumber: e.billNumber || '',
       category: e.category || '',
+      quantity: e.quantity ?? '',
+      unit: e.unit || '',
       amount: e.amount,
       paymentMode: e.paymentMode || 'cash',
     });
@@ -51,7 +66,11 @@ export default function LedgerTable({ data, onChanged }) {
       fd.append('date', editForm.date);
       fd.append('type', editForm.type);
       fd.append('description', editForm.description);
-      if (editForm.type === 'bill') fd.append('billNumber', editForm.billNumber);
+      if (editForm.type === 'bill') {
+        fd.append('billNumber', editForm.billNumber);
+        fd.append('quantity', editForm.quantity);
+        fd.append('unit', editForm.unit);
+      }
       fd.append('category', editForm.category);
       fd.append('amount', editForm.amount);
       if (editForm.type === 'payment') fd.append('paymentMode', editForm.paymentMode);
@@ -114,6 +133,25 @@ export default function LedgerTable({ data, onChanged }) {
           <input value={editForm.billNumber} onChange={(ev) => setEditForm({ ...editForm, billNumber: ev.target.value })} />
         ) : '-'}
       </td>
+      <td>
+        {editForm.type === 'bill' ? (
+          <div style={{ display: 'flex', gap: 4 }}>
+            <input
+              type="number" min="0" step="any"
+              value={editForm.quantity}
+              placeholder="Qty"
+              onChange={(ev) => setEditForm({ ...editForm, quantity: ev.target.value })}
+              style={{ width: 60 }}
+            />
+            <input
+              value={editForm.unit}
+              placeholder="Unit"
+              onChange={(ev) => setEditForm({ ...editForm, unit: ev.target.value })}
+              style={{ width: 70 }}
+            />
+          </div>
+        ) : '-'}
+      </td>
       {showCategoryCol && (
         <td>
           <input value={editForm.category} placeholder="Category" list="ledger-table-categories" onChange={(ev) => setEditForm({ ...editForm, category: ev.target.value })} />
@@ -143,6 +181,7 @@ export default function LedgerTable({ data, onChanged }) {
       <td>{fmtDate(e.date)}</td>
       <td>{e.description || (e.type === 'bill' ? 'Purchase / Bill' : `Payment${e.paymentMode ? ' - ' + e.paymentMode : ''}`)}</td>
       <td>{e.billNumber || '-'}</td>
+      <td>{fmtQty(e)}</td>
       {showCategoryCol && <td>{e.category || '-'}</td>}
       <td className="num">{e.type === 'bill' ? fmt(e.amount) : ''}</td>
       <td className="num">{e.type === 'payment' ? fmt(e.amount) : ''}</td>
@@ -179,6 +218,7 @@ export default function LedgerTable({ data, onChanged }) {
               <th>Date</th>
               <th>Particulars</th>
               <th>Bill No.</th>
+              <th>Qty</th>
               <th>Category</th>
               <th className="num">Bill (Cr)</th>
               <th className="num">Payment (Dr)</th>
@@ -190,14 +230,14 @@ export default function LedgerTable({ data, onChanged }) {
           <tbody>
             {entries.length === 0 && (
               <tr>
-                <td colSpan={9} className="muted center">No entries yet. Add a bill or payment above.</td>
+                <td colSpan={10} className="muted center">No entries yet. Add a bill or payment above.</td>
               </tr>
             )}
             {entries.map((e) => renderRow(e, opts))}
           </tbody>
           <tfoot>
             <tr className="totals-row">
-              <td colSpan={4}>TOTAL</td>
+              <td colSpan={5}>TOTAL</td>
               <td className="num">{fmt(totalBills)}</td>
               <td className="num">{fmt(totalPayments)}</td>
               <td className={`num ${balance > 0 ? 'due' : balance < 0 ? 'advance' : ''}`}>{fmt(balance)}</td>
@@ -217,7 +257,8 @@ export default function LedgerTable({ data, onChanged }) {
   }
 
   // Grouped-by-category view: one table per category (bills and payments for
-  // that category together), a subtotal per category, then an overall summary.
+  // that category together), a subtotal (incl. total quantity) per category,
+  // then an overall summary.
   const groups = new Map();
   entries.forEach((e) => {
     const key = (e.category && e.category.trim()) || 'Uncategorized';
@@ -242,16 +283,18 @@ export default function LedgerTable({ data, onChanged }) {
         const groupEntries = groups.get(category);
         const catBills = groupEntries.filter((e) => e.type === 'bill').reduce((s, e) => s + e.amount, 0);
         const catPayments = groupEntries.filter((e) => e.type === 'payment').reduce((s, e) => s + e.amount, 0);
+        const catQty = qtyTotalsFor(groupEntries);
 
         return (
           <div key={category} style={{ marginBottom: 24 }}>
-            <h4 style={{ margin: '0 0 8px' }}>{category}</h4>
+            <h4 style={{ margin: '0 0 8px' }}>{category}{catQty ? ` — Total Qty: ${catQty}` : ''}</h4>
             <table className="ledger-table ruled">
               <thead>
                 <tr>
                   <th>Date</th>
                   <th>Particulars</th>
                   <th>Bill No.</th>
+                  <th>Qty</th>
                   <th className="num">Bill (Cr)</th>
                   <th className="num">Payment (Dr)</th>
                   <th>Proof</th>
@@ -261,7 +304,7 @@ export default function LedgerTable({ data, onChanged }) {
               <tbody>{groupEntries.map((e) => renderRow(e, groupOpts))}</tbody>
               <tfoot>
                 <tr className="totals-row">
-                  <td colSpan={3}>{category} Subtotal</td>
+                  <td colSpan={4}>{category} Subtotal</td>
                   <td className="num">{fmt(catBills)}</td>
                   <td className="num">{fmt(catPayments)}</td>
                   <td colSpan={2}></td>
@@ -278,7 +321,12 @@ export default function LedgerTable({ data, onChanged }) {
         {sortedCategories.map((category) => {
           const groupEntries = groups.get(category);
           const catBalance = groupEntries.reduce((s, e) => s + (e.type === 'bill' ? e.amount : -e.amount), 0);
-          return <p key={category}>{category}: Rs. {fmt(catBalance)}</p>;
+          const catQty = qtyTotalsFor(groupEntries);
+          return (
+            <p key={category}>
+              {category}: Rs. {fmt(catBalance)}{catQty ? ` (Qty: ${catQty})` : ''}
+            </p>
+          );
         })}
         <p className="balance-summary" style={{ marginTop: 10 }}>
           {balance > 0

@@ -7,6 +7,8 @@ const entrySchema = new mongoose.Schema({
   description: { type: String, trim: true, default: '' },
   billNumber: { type: String, trim: true, default: '' },
   category: { type: String, trim: true, default: '' },
+  quantity: { type: Number, min: 0 },
+  unit: { type: String, trim: true, default: '' },
   amount: { type: Number, required: true, min: 0 },
   paymentMode: { type: String, enum: ['cash', 'phonepay', 'bank', 'other', ''], default: '' },
   documents: [{

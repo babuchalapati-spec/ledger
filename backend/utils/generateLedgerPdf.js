@@ -2,22 +2,24 @@
 const PDFDocument = require('pdfkit');
 
 const COLS = [
-  { key: 'date', label: 'Date', width: 70 },
-  { key: 'particulars', label: 'Particulars', width: 165 },
-  { key: 'billNumber', label: 'Bill No.', width: 65 },
-  { key: 'debit', label: 'Payment (Dr)', width: 85 },
-  { key: 'credit', label: 'Bill (Cr)', width: 85 },
-  { key: 'balance', label: 'Balance', width: 85 },
+  { key: 'date', label: 'Date', width: 62 },
+  { key: 'particulars', label: 'Particulars', width: 138 },
+  { key: 'billNumber', label: 'Bill No.', width: 50 },
+  { key: 'qty', label: 'Qty', width: 50 },
+  { key: 'debit', label: 'Payment (Dr)', width: 82 },
+  { key: 'credit', label: 'Bill (Cr)', width: 82 },
+  { key: 'balance', label: 'Balance', width: 82 },
 ];
 
 // Used for the category-grouped layout: no running-balance column since a
 // per-row running balance isn't meaningful once entries are split into groups.
 const GROUPED_COLS = [
-  { key: 'date', label: 'Date', width: 80 },
-  { key: 'particulars', label: 'Particulars', width: 195 },
-  { key: 'billNumber', label: 'Bill No.', width: 75 },
-  { key: 'debit', label: 'Payment (Dr)', width: 100 },
-  { key: 'credit', label: 'Bill (Cr)', width: 100 },
+  { key: 'date', label: 'Date', width: 70 },
+  { key: 'particulars', label: 'Particulars', width: 160 },
+  { key: 'billNumber', label: 'Bill No.', width: 60 },
+  { key: 'qty', label: 'Qty', width: 55 },
+  { key: 'debit', label: 'Payment (Dr)', width: 90 },
+  { key: 'credit', label: 'Bill (Cr)', width: 90 },
 ];
 
 function fmtDate(d) {
@@ -30,6 +32,22 @@ function fmtAmt(n) {
 
 function particularsFor(e) {
   return e.description || (e.type === 'bill' ? 'Purchase / Bill' : `Payment${e.paymentMode ? ' - ' + e.paymentMode : ''}`);
+}
+
+function fmtQty(e) {
+  return e.type === 'bill' && e.quantity != null ? `${e.quantity}${e.unit ? ' ' + e.unit : ''}` : '';
+}
+
+// Sums quantity per unit across a group's bill entries, e.g. "60 bags, 3 tons".
+function qtyTotalsFor(groupEntries) {
+  const totals = {};
+  groupEntries.forEach((e) => {
+    if (e.type === 'bill' && e.quantity != null) {
+      const key = e.unit || '';
+      totals[key] = (totals[key] || 0) + e.quantity;
+    }
+  });
+  return Object.entries(totals).map(([unit, qty]) => `${qty}${unit ? ' ' + unit : ''}`).join(', ');
 }
 
 function generateLedgerPdf({ customer, entries, openingBalance, totalBills, totalPayments, balance, business }, res) {
@@ -110,7 +128,8 @@ function generateLedgerPdf({ customer, entries, openingBalance, totalBills, tota
   }
 
   if (!hasCategories) {
-    // Today's flat chronological layout with a running balance column, unchanged.
+    // Today's flat chronological layout with a running balance column, unchanged
+    // except for the added Qty column.
     drawHeaderRow(y);
     y += rowHeight;
 
@@ -131,6 +150,7 @@ function generateLedgerPdf({ customer, entries, openingBalance, totalBills, tota
         date: fmtDate(e.date),
         particulars: particularsFor(e),
         billNumber: e.billNumber || '-',
+        qty: fmtQty(e),
         debit: e.type === 'payment' ? fmtAmt(e.amount) : '',
         credit: e.type === 'bill' ? fmtAmt(e.amount) : '',
         balance: fmtAmt(e.runningBalance),
@@ -156,7 +176,8 @@ function generateLedgerPdf({ customer, entries, openingBalance, totalBills, tota
     );
   } else {
     // Grouped-by-category layout: one mini-table per category, each with its
-    // own subtotal ("category balance"), then a final summary combining them.
+    // own subtotal ("category balance") and total quantity, then a final
+    // summary combining every category's balance.
     const groups = new Map();
     entries.forEach((e) => {
       const key = (e.category && e.category.trim()) || 'Uncategorized';
@@ -189,6 +210,7 @@ function generateLedgerPdf({ customer, entries, openingBalance, totalBills, tota
           date: fmtDate(e.date),
           particulars: particularsFor(e),
           billNumber: e.billNumber || '-',
+          qty: fmtQty(e),
           debit: e.type === 'payment' ? fmtAmt(e.amount) : '',
           credit: e.type === 'bill' ? fmtAmt(e.amount) : '',
         });
@@ -198,11 +220,13 @@ function generateLedgerPdf({ customer, entries, openingBalance, totalBills, tota
       });
 
       const categoryBalance = categoryBills - categoryPayments;
-      categoryBalances.push({ category, balance: categoryBalance });
+      const categoryQty = qtyTotalsFor(groupEntries);
+      categoryBalances.push({ category, balance: categoryBalance, qty: categoryQty });
 
       ensureSpace(rowHeight, drawHeaderRow);
       drawRow(y, {
         particulars: `${category} Subtotal`,
+        qty: categoryQty,
         debit: fmtAmt(categoryPayments),
         credit: fmtAmt(categoryBills),
       }, { bold: true });
@@ -219,8 +243,8 @@ function generateLedgerPdf({ customer, entries, openingBalance, totalBills, tota
       doc.text(`Opening Balance: Rs. ${fmtAmt(openingBalance)}`, left, y);
       y += 16;
     }
-    categoryBalances.forEach(({ category, balance: catBalance }) => {
-      doc.text(`${category}: Rs. ${fmtAmt(catBalance)}`, left, y);
+    categoryBalances.forEach(({ category, balance: catBalance, qty }) => {
+      doc.text(`${category}: Rs. ${fmtAmt(catBalance)}${qty ? ` (Qty: ${qty})` : ''}`, left, y);
       y += 16;
     });
     y += 6;

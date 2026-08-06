@@ -9,6 +9,8 @@ const emptyForm = {
   description: '',
   billNumber: '',
   category: '',
+  quantity: '',
+  unit: '',
   amount: '',
   paymentMode: 'cash',
 };
@@ -65,7 +67,11 @@ export default function EntryForm({ customerId, onAdded }) {
       fd.append('date', form.date);
       fd.append('type', form.type);
       fd.append('description', form.description);
-      if (form.type === 'bill') fd.append('billNumber', form.billNumber);
+      if (form.type === 'bill') {
+        fd.append('billNumber', form.billNumber);
+        fd.append('quantity', form.quantity);
+        fd.append('unit', form.unit);
+      }
       fd.append('category', form.category);
       fd.append('amount', form.amount);
       if (form.type === 'payment') fd.append('paymentMode', form.paymentMode);
@@ -115,6 +121,20 @@ export default function EntryForm({ customerId, onAdded }) {
         <label>
           Bill Number
           <input value={form.billNumber} onChange={(e) => setForm({ ...form, billNumber: e.target.value })} />
+        </label>
+      )}
+
+      {form.type === 'bill' && (
+        <label>
+          Quantity
+          <input type="number" min="0" step="any" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} placeholder="e.g. 10" />
+        </label>
+      )}
+
+      {form.type === 'bill' && (
+        <label>
+          Unit
+          <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="e.g. bags, tons, kg" />
         </label>
       )}
 

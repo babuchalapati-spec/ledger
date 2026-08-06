@@ -188,11 +188,17 @@ export default function LedgerTable({ data, onChanged }) {
       {showBalanceCol && <td className="num">{fmt(e.runningBalance)}</td>}
       <td>
         {e.documents && e.documents.length > 0
-          ? e.documents.map((d, i) => (
-              <a key={i} href={fileUrl(d.path)} target="_blank" rel="noreferrer" className="doc-link">
-                {d.mimeType === 'application/pdf' ? 'PDF' : 'Photo'} {i + 1}
-              </a>
-            ))
+          ? e.documents.map((d, i) =>
+              d.mimeType === 'application/pdf' ? (
+                <a key={i} href={fileUrl(d.path)} target="_blank" rel="noreferrer" className="doc-link">
+                  PDF {i + 1}
+                </a>
+              ) : (
+                <a key={i} href={fileUrl(d.path)} target="_blank" rel="noreferrer" className="doc-thumb-link" title="View full photo">
+                  <img src={fileUrl(d.path)} alt="Bill photo" className="doc-thumb" />
+                </a>
+              )
+            )
           : <span className="muted">-</span>}
       </td>
       <td className="edit-actions">

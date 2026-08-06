@@ -334,6 +334,20 @@ h3 {
 }
 .doc-link:hover { text-decoration: underline; }
 
+.doc-thumb-link {
+  display: inline-block;
+  margin: 0 6px 6px 0;
+}
+
+.doc-thumb {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  vertical-align: middle;
+}
+
 .balance-summary {
   margin-top: 16px;
   font-size: 15px;

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { getCustomers, createCustomer, deleteCustomer } from '../api/client';
+import { getCustomers, createCustomer, deleteCustomer, getCustomerCategories } from '../api/client';
 
 const emptyForm = { name: '', address: '', gstNumber: '', phone: '', category: '', openingBalanceAmount: '', openingBalanceType: 'due' };
 
 export default function CustomerList({ onOpenCustomer, autoOpenForm }) {
   const [customers, setCustomers] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(!!autoOpenForm);
   const [error, setError] = useState('');
@@ -19,6 +20,7 @@ export default function CustomerList({ onOpenCustomer, autoOpenForm }) {
   };
 
   useEffect(load, []);
+  useEffect(() => { getCustomerCategories().then(setCategories).catch(() => {}); }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -140,7 +142,10 @@ export default function CustomerList({ onOpenCustomer, autoOpenForm }) {
           </label>
           <label>
             Category
-            <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Wholesale, Retail" />
+            <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Wholesale, Retail" list="customer-categories" />
+            <datalist id="customer-categories">
+              {categories.map((c) => <option key={c} value={c} />)}
+            </datalist>
           </label>
           <label>
             Opening Balance Type

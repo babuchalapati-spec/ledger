@@ -43,6 +43,17 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Distinct category names already in use, for autocomplete (must come before /:id)
+router.get('/categories', async (req, res) => {
+  try {
+    const Customer = getCustomerModel(req.tenantConn);
+    const categories = await Customer.distinct('category', { category: { $ne: '' } });
+    res.json(categories.sort());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get single customer
 router.get('/:id', async (req, res) => {
   try {

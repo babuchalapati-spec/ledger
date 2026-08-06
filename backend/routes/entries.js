@@ -66,6 +66,17 @@ router.get('/customer/:customerId', async (req, res) => {
   }
 });
 
+// Distinct category names already in use, for autocomplete
+router.get('/categories', async (req, res) => {
+  try {
+    const Entry = getEntryModel(req.tenantConn);
+    const categories = await Entry.distinct('category', { category: { $ne: '' } });
+    res.json(categories.sort());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 function deleteUploadedFiles(files) {
   (files || []).forEach((f) => {
     if (fs.existsSync(f.path)) fs.unlinkSync(f.path);

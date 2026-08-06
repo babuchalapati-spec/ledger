@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { createEntry, extractBill } from '../api/client';
+import { useEffect, useState } from 'react';
+import { createEntry, extractBill, getEntryCategories } from '../api/client';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -20,6 +20,9 @@ export default function EntryForm({ customerId, onAdded }) {
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState('');
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => { getEntryCategories().then(setCategories).catch(() => {}); }, []);
 
   const handleScanBill = async () => {
     if (files.length !== 1) return;
@@ -73,6 +76,7 @@ export default function EntryForm({ customerId, onAdded }) {
       setFiles([]);
       e.target.reset?.();
       onAdded();
+      getEntryCategories().then(setCategories).catch(() => {});
     } catch (err) {
       setError(err.response?.data?.error || err.message);
     } finally {
@@ -141,7 +145,11 @@ export default function EntryForm({ customerId, onAdded }) {
           value={form.category}
           onChange={(e) => setForm({ ...form, category: e.target.value })}
           placeholder="e.g. Grocery, Hardware"
+          list="entry-categories"
         />
+        <datalist id="entry-categories">
+          {categories.map((c) => <option key={c} value={c} />)}
+        </datalist>
       </label>
 
       <label>

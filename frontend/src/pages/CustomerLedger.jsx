@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getCustomer, updateCustomer, getEntries, ledgerPdfUrl } from '../api/client';
+import { getCustomer, updateCustomer, getEntries, ledgerPdfUrl, getCustomerCategories } from '../api/client';
 import EntryForm from '../components/EntryForm';
 import LedgerTable from '../components/LedgerTable';
 import StatementImport from '../components/StatementImport';
@@ -11,6 +11,9 @@ export default function CustomerLedger({ customerId }) {
   const [ledgerData, setLedgerData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [customerCategories, setCustomerCategories] = useState([]);
+
+  useEffect(() => { getCustomerCategories().then(setCustomerCategories).catch(() => {}); }, []);
 
   const loadAll = () => {
     setLoading(true);
@@ -83,7 +86,10 @@ export default function CustomerLedger({ customerId }) {
           </label>
           <label>
             Category
-            <input value={editForm.category || ''} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} placeholder="e.g. Wholesale, Retail" />
+            <input value={editForm.category || ''} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} placeholder="e.g. Wholesale, Retail" list="customer-categories" />
+            <datalist id="customer-categories">
+              {customerCategories.map((c) => <option key={c} value={c} />)}
+            </datalist>
           </label>
           <label>
             Opening Balance Type

@@ -61,9 +61,11 @@ export const getCustomer = (id) => api.get(`/customers/${id}`).then((r) => r.dat
 export const createCustomer = (data) => api.post('/customers', data).then((r) => r.data);
 export const updateCustomer = (id, data) => api.put(`/customers/${id}`, data).then((r) => r.data);
 export const deleteCustomer = (id) => api.delete(`/customers/${id}`).then((r) => r.data);
+export const getCustomerCategories = () => api.get('/customers/categories').then((r) => r.data);
 
 export const getEntries = (customerId) =>
   api.get(`/entries/customer/${customerId}`).then((r) => r.data);
+export const getEntryCategories = () => api.get('/entries/categories').then((r) => r.data);
 
 export const createEntry = (formData) =>
   api.post('/entries', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);

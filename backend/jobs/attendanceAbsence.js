@@ -27,16 +27,23 @@ async function runAbsenceCheck() {
       if (settings.lastAbsenceCheckDate === today) continue;
       if (nowTime < settings.attendanceCutoffTime) continue;
 
-      const staff = await PlatformUser.find({ account: account._id, role: 'staff' }).select('email').lean();
+      const staff = await PlatformUser.find({ account: account._id, role: 'staff' }).select('email phone').lean();
       if (staff.length > 0) {
         const Attendance = getAttendanceModel(conn);
         const checkedInToday = await Attendance.find({ date: today, userEmail: { $in: staff.map((s) => s.email) } }).select('userEmail').lean();
         const checkedInEmails = new Set(checkedInToday.map((a) => a.userEmail));
-        const absentees = staff.map((s) => s.email).filter((email) => !checkedInEmails.has(email));
+        const absentees = staff.filter((s) => !checkedInEmails.has(s.email));
 
         if (absentees.length > 0) {
-          const message = `${absentees.join(', ')} not marked attendance today (${today}) at ${settings.businessName || 'your business'}.`;
-          await sendSms(settings.phone, message);
+          const businessName = settings.businessName || 'your business';
+          const ownerMessage = `${absentees.map((a) => a.email).join(', ')} not marked attendance today (${today}) at ${businessName}.`;
+          await sendSms(settings.phone, ownerMessage);
+
+          for (const absentee of absentees) {
+            if (!absentee.phone) continue;
+            const staffMessage = `You have been marked ABSENT today (${today}) at ${businessName}.`;
+            await sendSms(absentee.phone, staffMessage);
+          }
         }
       }
 

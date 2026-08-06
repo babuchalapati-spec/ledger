@@ -7,6 +7,7 @@ const platformUserSchema = new mongoose.Schema({
   account: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true, index: true },
   role: { type: String, enum: ['owner', 'staff'], default: 'owner' },
   monthlySalary: { type: Number, default: 0 },
+  phone: { type: String, trim: true, default: '' },
   securityQuestion: { type: String, default: '' },
   securityAnswerHash: { type: String, default: '' },
   securityAnswerSalt: { type: String, default: '' },

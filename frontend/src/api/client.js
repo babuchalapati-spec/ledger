@@ -102,6 +102,7 @@ export const addAccountUser = (data) => api.post('/account/users', data).then((r
 export const deleteAccountUser = (email) => api.delete(`/account/users/${encodeURIComponent(email)}`).then((r) => r.data);
 export const updateAccountUserRole = (email, role) => api.put(`/account/users/${encodeURIComponent(email)}`, { role }).then((r) => r.data);
 export const updateAccountUserSalary = (email, monthlySalary) => api.put(`/account/users/${encodeURIComponent(email)}`, { monthlySalary }).then((r) => r.data);
+export const updateAccountUserPhone = (email, phone) => api.put(`/account/users/${encodeURIComponent(email)}`, { phone }).then((r) => r.data);
 export const getLoginSessions = () => api.get('/account/sessions').then((r) => r.data);
 
 // Staff activity (audit) log — owner-only
@@ -113,6 +114,10 @@ export const checkInAttendance = (formData) =>
 export const getTodayAttendance = () => api.get('/attendance/today').then((r) => r.data);
 export const getAttendanceRegister = (params) => api.get('/attendance', { params }).then((r) => r.data);
 export const getSalaryReport = (month) => api.get('/attendance/salary', { params: { month } }).then((r) => r.data);
+export const payslipViewUrl = (email, month) =>
+  `${API_ORIGIN}/api/attendance/payslip/${encodeURIComponent(email)}/pdf?month=${month}&token=${encodeURIComponent(getToken() || '')}`;
+export const payslipDownloadUrl = (email, month) =>
+  `${API_ORIGIN}/api/attendance/payslip/${encodeURIComponent(email)}/pdf?month=${month}&download=1&token=${encodeURIComponent(getToken() || '')}`;
 
 // Super Admin
 export const superAdminExists = () => api.get('/superadmin/exists').then((r) => r.data);

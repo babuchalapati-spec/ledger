@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getAccountUsers, addAccountUser, deleteAccountUser, updateAccountUserRole, updateAccountUserSalary } from '../api/client';
+import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getAccountUsers, addAccountUser, deleteAccountUser, updateAccountUserRole, updateAccountUserSalary, updateAccountUserPhone } from '../api/client';
 
 const emptyUserForm = { email: '', password: '', confirmPassword: '', securityQuestion: '', securityAnswer: '' };
 
@@ -153,6 +153,20 @@ export default function Settings({ onSaved, onChangeServer, role }) {
     }
   };
 
+  const handlePhoneInput = (email, value) => {
+    setUsers((prev) => prev.map((u) => (u.email === email ? { ...u, phone: value } : u)));
+  };
+
+  const handlePhoneSave = async (email, value) => {
+    setUserError('');
+    try {
+      await updateAccountUserPhone(email, value);
+    } catch (err) {
+      setUserError(err.response?.data?.error || err.message);
+      loadUsers();
+    }
+  };
+
   if (loading) return <p>Loading settings...</p>;
 
   return (
@@ -200,7 +214,7 @@ export default function Settings({ onSaved, onChangeServer, role }) {
           <div className="table-wrap" style={{ marginBottom: 16 }}>
             <table className="ledger-table">
               <thead>
-                <tr><th>Email</th><th>Role</th><th>Monthly Salary (₹)</th><th></th></tr>
+                <tr><th>Email</th><th>Role</th><th>Monthly Salary (₹)</th><th>Phone</th><th></th></tr>
               </thead>
               <tbody>
                 {users.map((u) => (
@@ -221,6 +235,16 @@ export default function Settings({ onSaved, onChangeServer, role }) {
                         value={u.monthlySalary ?? 0}
                         onChange={(e) => handleSalaryInput(u.email, e.target.value)}
                         onBlur={(e) => handleSalarySave(u.email, e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="tel"
+                        style={{ width: 130 }}
+                        value={u.phone ?? ''}
+                        placeholder="9876543210"
+                        onChange={(e) => handlePhoneInput(u.email, e.target.value)}
+                        onBlur={(e) => handlePhoneSave(u.email, e.target.value)}
                       />
                     </td>
                     <td><button className="btn-danger-sm" onClick={() => handleDeleteUser(u.email)}>Remove</button></td>

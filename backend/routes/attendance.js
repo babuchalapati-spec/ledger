@@ -4,10 +4,25 @@ const fs = require('fs');
 const multer = require('multer');
 const router = express.Router();
 const getAttendanceModel = require('../models/tenant/Attendance');
+const getSettingsModel = require('../models/tenant/Settings');
 const PlatformUser = require('../models/PlatformUser');
 const { requireAuth, requireOwner } = require('../middleware/auth');
 const { logActivity } = require('../utils/activityLog');
 const { todayIST } = require('../utils/istTime');
+const { generatePayslipPdf } = require('../utils/generatePayslipPdf');
+
+function resolveMonth(queryMonth) {
+  return /^\d{4}-\d{2}$/.test(queryMonth) ? queryMonth : todayIST().slice(0, 7);
+}
+
+function workingDaysFor(month) {
+  const [year, monthNum] = month.split('-').map(Number);
+  return new Date(year, monthNum, 0).getDate();
+}
+
+function calcSalary({ monthlySalary, daysPresent, workingDays }) {
+  return Math.round((daysPresent / workingDays) * (monthlySalary || 0));
+}
 
 router.use(requireAuth);
 
@@ -101,9 +116,8 @@ router.get('/', async (req, res) => {
 // Salary for each staff login for a given month, prorated by attendance. Owner-only.
 router.get('/salary', requireOwner, async (req, res) => {
   try {
-    const month = /^\d{4}-\d{2}$/.test(req.query.month) ? req.query.month : todayIST().slice(0, 7);
-    const [year, monthNum] = month.split('-').map(Number);
-    const workingDays = new Date(year, monthNum, 0).getDate();
+    const month = resolveMonth(req.query.month);
+    const workingDays = workingDaysFor(month);
 
     const users = await PlatformUser.find({ account: req.user.accountId }).select('email role monthlySalary').lean();
 
@@ -121,11 +135,46 @@ router.get('/salary', requireOwner, async (req, res) => {
         monthlySalary,
         workingDays,
         daysPresent,
-        calculatedSalary: Math.round((daysPresent / workingDays) * monthlySalary),
+        calculatedSalary: calcSalary({ monthlySalary, daysPresent, workingDays }),
       };
     });
 
     res.json({ month, workingDays, report });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Printable payslip PDF for one staff login for a given month. Owner-only.
+router.get('/payslip/:email/pdf', requireOwner, async (req, res) => {
+  try {
+    const user = await PlatformUser.findOne({ account: req.user.accountId, email: req.params.email }).lean();
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const month = resolveMonth(req.query.month);
+    const workingDays = workingDaysFor(month);
+
+    const Attendance = getAttendanceModel(req.tenantConn);
+    const records = await Attendance.find({ userEmail: user.email, date: { $gte: `${month}-01`, $lte: `${month}-31` } })
+      .sort({ date: 1 }).select('date').lean();
+    const presentDates = records.map((r) => r.date);
+    const daysPresent = presentDates.length;
+    const monthlySalary = user.monthlySalary || 0;
+
+    const Settings = getSettingsModel(req.tenantConn);
+    const business = await Settings.findOne().lean();
+
+    const download = req.query.download === '1';
+    const filename = `payslip-${user.email}-${month}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${download ? 'attachment' : 'inline'}; filename="${filename}"`);
+
+    generatePayslipPdf({
+      business,
+      month,
+      summary: { email: user.email, role: user.role, monthlySalary, workingDays, daysPresent, calculatedSalary: calcSalary({ monthlySalary, daysPresent, workingDays }) },
+      presentDates,
+    }, res);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

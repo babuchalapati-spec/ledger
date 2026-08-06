@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { checkInAttendance, getTodayAttendance, getAttendanceRegister, getAccountUsers, getSalaryReport, fileUrl } from '../api/client';
+import { checkInAttendance, getTodayAttendance, getAttendanceRegister, getAccountUsers, getSalaryReport, payslipViewUrl, payslipDownloadUrl, fileUrl } from '../api/client';
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 
@@ -199,7 +199,7 @@ function SalaryReport() {
         <div className="table-wrap">
           <table className="ledger-table">
             <thead>
-              <tr><th>Staff</th><th>Monthly Salary</th><th>Working Days</th><th>Days Present</th><th>Calculated Salary</th></tr>
+              <tr><th>Staff</th><th>Monthly Salary</th><th>Working Days</th><th>Days Present</th><th>Calculated Salary</th><th>Payslip</th></tr>
             </thead>
             <tbody>
               {data.report.map((r) => (
@@ -209,6 +209,11 @@ function SalaryReport() {
                   <td>{r.workingDays}</td>
                   <td>{r.daysPresent}</td>
                   <td><strong>₹{r.calculatedSalary}</strong></td>
+                  <td>
+                    <a href={payslipViewUrl(r.email, month)} target="_blank" rel="noreferrer" className="doc-link">View</a>
+                    {' · '}
+                    <a href={payslipDownloadUrl(r.email, month)} target="_blank" rel="noreferrer" className="doc-link">Download</a>
+                  </td>
                 </tr>
               ))}
             </tbody>

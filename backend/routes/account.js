@@ -41,7 +41,7 @@ router.get('/sessions', requireAuth, requireOwner, async (req, res) => {
 
 router.get('/users', requireAuth, requireOwner, async (req, res) => {
   try {
-    const users = await PlatformUser.find({ account: req.user.accountId }).select('email role monthlySalary createdAt').sort({ email: 1 }).lean();
+    const users = await PlatformUser.find({ account: req.user.accountId }).select('email role monthlySalary phone createdAt').sort({ email: 1 }).lean();
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -95,7 +95,7 @@ router.delete('/users/:email', requireAuth, requireOwner, async (req, res) => {
 // Promote/demote a login between 'owner' and 'staff', and/or set their monthly salary
 router.put('/users/:email', requireAuth, requireOwner, async (req, res) => {
   try {
-    const { role, monthlySalary } = req.body;
+    const { role, monthlySalary, phone } = req.body;
     if (role !== undefined && !['owner', 'staff'].includes(role)) {
       return res.status(400).json({ error: 'role must be owner or staff' });
     }
@@ -114,9 +114,10 @@ router.put('/users/:email', requireAuth, requireOwner, async (req, res) => {
       user.role = role;
     }
     if (monthlySalary !== undefined) user.monthlySalary = Number(monthlySalary);
+    if (phone !== undefined) user.phone = phone;
 
     await user.save();
-    res.json({ email: user.email, role: user.role, monthlySalary: user.monthlySalary });
+    res.json({ email: user.email, role: user.role, monthlySalary: user.monthlySalary, phone: user.phone });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getAccountUsers, addAccountUser, deleteAccountUser, updateAccountUserRole, updateAccountUserSalary, updateAccountUserPhone } from '../api/client';
+import api, { getSettings, updateSettings, isMobileApp, getServerUrl, getAccountUsers, addAccountUser, deleteAccountUser, updateAccountUserRole, updateAccountUserSalary, updateAccountUserPhone, setAccountUserPassword } from '../api/client';
 
 const emptyUserForm = { email: '', password: '', confirmPassword: '', securityQuestion: '', securityAnswer: '' };
 
@@ -167,6 +167,26 @@ export default function Settings({ onSaved, onChangeServer, role }) {
     }
   };
 
+  const [resetPasswordFor, setResetPasswordFor] = useState(null);
+  const [newPasswordValue, setNewPasswordValue] = useState('');
+
+  const handleSetPassword = async (email) => {
+    setUserError('');
+    setUserSaved('');
+    if (newPasswordValue.length < 6) {
+      setUserError('A new password of at least 6 characters is required');
+      return;
+    }
+    try {
+      await setAccountUserPassword(email, newPasswordValue);
+      setUserSaved(`Password updated for "${email}".`);
+      setResetPasswordFor(null);
+      setNewPasswordValue('');
+    } catch (err) {
+      setUserError(err.response?.data?.error || err.message);
+    }
+  };
+
   if (loading) return <p>Loading settings...</p>;
 
   return (
@@ -214,7 +234,7 @@ export default function Settings({ onSaved, onChangeServer, role }) {
           <div className="table-wrap" style={{ marginBottom: 16 }}>
             <table className="ledger-table">
               <thead>
-                <tr><th>Email</th><th>Role</th><th>Monthly Salary (₹)</th><th>Phone</th><th></th></tr>
+                <tr><th>Email</th><th>Role</th><th>Monthly Salary (₹)</th><th>Phone</th><th>Password</th><th></th></tr>
               </thead>
               <tbody>
                 {users.map((u) => (
@@ -246,6 +266,23 @@ export default function Settings({ onSaved, onChangeServer, role }) {
                         onChange={(e) => handlePhoneInput(u.email, e.target.value)}
                         onBlur={(e) => handlePhoneSave(u.email, e.target.value)}
                       />
+                    </td>
+                    <td>
+                      {resetPasswordFor === u.email ? (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <input
+                            type="password"
+                            style={{ width: 110 }}
+                            value={newPasswordValue}
+                            placeholder="New password"
+                            onChange={(e) => setNewPasswordValue(e.target.value)}
+                          />
+                          <button className="btn-primary" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => handleSetPassword(u.email)}>Save</button>
+                          <button className="btn-secondary" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => { setResetPasswordFor(null); setNewPasswordValue(''); }}>Cancel</button>
+                        </div>
+                      ) : (
+                        <button className="btn-secondary" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => { setResetPasswordFor(u.email); setNewPasswordValue(''); }}>Set Password</button>
+                      )}
                     </td>
                     <td><button className="btn-danger-sm" onClick={() => handleDeleteUser(u.email)}>Remove</button></td>
                   </tr>

@@ -15,6 +15,27 @@ const getEntryModel = require('../models/tenant/Entry');
 const getOrderModel = require('../models/tenant/Order');
 const getDeliveryModel = require('../models/tenant/Delivery');
 
+// Super Admin changes their own password
+router.put('/change-password', requireSuperAdmin, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'A new password of at least 6 characters is required' });
+    }
+    const admin = await SuperAdmin.findById(req.superAdmin.superAdminId);
+    if (!admin || !verifyPassword(currentPassword || '', admin.passwordHash, admin.passwordSalt)) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+    const { hash, salt } = hashPassword(newPassword);
+    admin.passwordHash = hash;
+    admin.passwordSalt = salt;
+    await admin.save();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 async function getPlatformSettingsSingleton() {
   let settings = await PlatformSettings.findOne();
   if (!settings) settings = await PlatformSettings.create({});

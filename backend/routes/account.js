@@ -95,12 +95,15 @@ router.delete('/users/:email', requireAuth, requireOwner, async (req, res) => {
 // Promote/demote a login between 'owner' and 'staff', and/or set their monthly salary
 router.put('/users/:email', requireAuth, requireOwner, async (req, res) => {
   try {
-    const { role, monthlySalary, phone } = req.body;
+    const { role, monthlySalary, phone, newPassword } = req.body;
     if (role !== undefined && !['owner', 'staff'].includes(role)) {
       return res.status(400).json({ error: 'role must be owner or staff' });
     }
     if (monthlySalary !== undefined && !(Number(monthlySalary) >= 0)) {
       return res.status(400).json({ error: 'monthlySalary must be a non-negative number' });
+    }
+    if (newPassword !== undefined && newPassword.length < 6) {
+      return res.status(400).json({ error: 'A new password of at least 6 characters is required' });
     }
 
     const user = await PlatformUser.findOne({ account: req.user.accountId, email: req.params.email });
@@ -115,6 +118,11 @@ router.put('/users/:email', requireAuth, requireOwner, async (req, res) => {
     }
     if (monthlySalary !== undefined) user.monthlySalary = Number(monthlySalary);
     if (phone !== undefined) user.phone = phone;
+    if (newPassword !== undefined) {
+      const { hash, salt } = hashPassword(newPassword);
+      user.passwordHash = hash;
+      user.passwordSalt = salt;
+    }
 
     await user.save();
     res.json({ email: user.email, role: user.role, monthlySalary: user.monthlySalary, phone: user.phone });

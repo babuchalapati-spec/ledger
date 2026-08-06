@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   getAccounts, updateAccount, clearAdminToken, generateResetLink,
   getPlans, createPlan, updatePlan, deletePlan,
-  getPlatformSettings, updatePlatformSettings,
+  getPlatformSettings, updatePlatformSettings, superAdminChangePassword,
 } from '../../api/client';
 
 const emptyPlanForm = { name: '', price: '', billingPeriod: 'monthly', description: '', groceryInventory: false, deliveries: false, projects: false };
@@ -22,6 +22,11 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
   const [settingsForm, setSettingsForm] = useState({ upgradeMessage: '', contactPhone: '', contactWhatsApp: '', contactEmail: '' });
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [settingsError, setSettingsError] = useState('');
+
+  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwSaved, setPwSaved] = useState(false);
+  const [pwError, setPwError] = useState('');
 
   const load = () => {
     setLoading(true);
@@ -141,6 +146,30 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
       setSettingsSaved(true);
     } catch (err) {
       setSettingsError(err.response?.data?.error || err.message);
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPwError('');
+    setPwSaved(false);
+    if (pwForm.newPassword.length < 6) {
+      setPwError('A new password of at least 6 characters is required');
+      return;
+    }
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      setPwError('New password and confirmation must match');
+      return;
+    }
+    setPwSaving(true);
+    try {
+      await superAdminChangePassword(pwForm.currentPassword, pwForm.newPassword);
+      setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPwSaved(true);
+    } catch (err) {
+      setPwError(err.response?.data?.error || err.message);
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -336,6 +365,25 @@ export default function SuperAdminDashboard({ onLoggedOut }) {
           <input type="email" value={settingsForm.contactEmail} onChange={(e) => setSettingsForm({ ...settingsForm, contactEmail: e.target.value })} />
         </label>
         <button className="btn-primary" type="submit">Save</button>
+      </form>
+
+      <h3>🔒 Change My Password</h3>
+      <form className="card form-grid" onSubmit={handlePasswordSubmit}>
+        {pwError && <div className="error-banner">{pwError}</div>}
+        {pwSaved && <div className="success-banner">Password updated.</div>}
+        <label>
+          Current Password
+          <input type="password" value={pwForm.currentPassword} onChange={(e) => setPwForm({ ...pwForm, currentPassword: e.target.value })} />
+        </label>
+        <label>
+          New Password
+          <input type="password" value={pwForm.newPassword} onChange={(e) => setPwForm({ ...pwForm, newPassword: e.target.value })} />
+        </label>
+        <label>
+          Confirm New Password
+          <input type="password" value={pwForm.confirmPassword} onChange={(e) => setPwForm({ ...pwForm, confirmPassword: e.target.value })} />
+        </label>
+        <button className="btn-primary" type="submit" disabled={pwSaving}>{pwSaving ? 'Saving...' : 'Change Password'}</button>
       </form>
     </div>
   );

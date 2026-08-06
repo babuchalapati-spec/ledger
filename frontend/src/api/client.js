@@ -103,6 +103,7 @@ export const deleteAccountUser = (email) => api.delete(`/account/users/${encodeU
 export const updateAccountUserRole = (email, role) => api.put(`/account/users/${encodeURIComponent(email)}`, { role }).then((r) => r.data);
 export const updateAccountUserSalary = (email, monthlySalary) => api.put(`/account/users/${encodeURIComponent(email)}`, { monthlySalary }).then((r) => r.data);
 export const updateAccountUserPhone = (email, phone) => api.put(`/account/users/${encodeURIComponent(email)}`, { phone }).then((r) => r.data);
+export const setAccountUserPassword = (email, newPassword) => api.put(`/account/users/${encodeURIComponent(email)}`, { newPassword }).then((r) => r.data);
 export const getLoginSessions = () => api.get('/account/sessions').then((r) => r.data);
 
 // Staff activity (audit) log — owner-only
@@ -124,6 +125,8 @@ export const notifySalaryByEmail = (email, month) => api.post(`/attendance/salar
 export const superAdminExists = () => api.get('/superadmin/exists').then((r) => r.data);
 export const superAdminRegister = (data) => api.post('/superadmin/register', data).then((r) => r.data);
 export const superAdminLogin = (email, password) => api.post('/superadmin/login', { email, password }).then((r) => r.data);
+export const superAdminChangePassword = (currentPassword, newPassword) =>
+  api.put('/superadmin/change-password', { currentPassword, newPassword }).then((r) => r.data);
 export const getAccounts = () => api.get('/superadmin/accounts').then((r) => r.data);
 export const updateAccount = (id, data) => api.put(`/superadmin/accounts/${id}`, data).then((r) => r.data);
 export const generateResetLink = (id) => api.post(`/superadmin/accounts/${id}/reset-link`).then((r) => r.data);

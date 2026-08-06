@@ -7,20 +7,22 @@ import Deliveries from './pages/Deliveries';
 import Projects from './pages/Projects';
 import DeliveryReminder from './components/DeliveryReminder';
 import Settings from './pages/Settings';
+import StaffActivity from './pages/StaffActivity';
 import ServerConnect from './pages/ServerConnect';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import UpgradeScreen from './pages/UpgradeScreen';
-import { getSettings, getAccountMe, isMobileApp, getServerUrl, getToken, clearToken } from './api/client';
+import { getSettings, getAccountMe, isMobileApp, getServerUrl, getToken, clearToken, logout } from './api/client';
 import './App.css';
 
 function App() {
-  const [view, setView] = useState('home'); // 'home' | 'list' | 'ledger' | 'settings' | 'inventory' | 'deliveries' | 'projects'
+  const [view, setView] = useState('home'); // 'home' | 'list' | 'ledger' | 'settings' | 'inventory' | 'deliveries' | 'projects' | 'activity'
   const [authView, setAuthView] = useState('login'); // 'login' | 'register', shown when logged out
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [autoOpenForm, setAutoOpenForm] = useState(false);
   const [businessName, setBusinessName] = useState('');
   const [modules, setModules] = useState({ groceryInventory: false, deliveries: false, projects: false });
+  const [role, setRole] = useState('');
   const [mobileConnected, setMobileConnected] = useState(!isMobileApp() || !!getServerUrl());
   const [authChecked, setAuthChecked] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
@@ -35,6 +37,7 @@ function App() {
     getAccountMe()
       .then((account) => {
         setModules(account.modules || {});
+        setRole(account.role || '');
         setLoggedIn(true);
         setTrialExpired(false);
       })
@@ -73,6 +76,7 @@ function App() {
   };
 
   const handleLogOff = () => {
+    logout().catch(() => {});
     clearToken();
     setLoggedIn(false);
     setAuthView('login');
@@ -138,6 +142,11 @@ function App() {
               &larr; Back
             </button>
           )}
+          {role === 'owner' && view !== 'activity' && (
+            <button className="btn-secondary" onClick={() => setView('activity')}>
+              📋 Staff Activity
+            </button>
+          )}
           {view !== 'settings' && (
             <button className="btn-secondary" onClick={() => setView('settings')}>
               ⚙ Settings
@@ -153,6 +162,7 @@ function App() {
         {view === 'settings' && (
           <Settings onSaved={handleSettingsSaved} onChangeServer={() => setMobileConnected(false)} />
         )}
+        {view === 'activity' && role === 'owner' && <StaffActivity />}
         {view === 'home' && (
           <Home
             onViewLedgers={() => { setAutoOpenForm(false); setView('list'); }}

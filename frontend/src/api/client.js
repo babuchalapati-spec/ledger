@@ -89,6 +89,7 @@ export const login = (email, password) => api.post('/auth/login', { email, passw
 export const getSecurityQuestion = (email) => api.get('/auth/security-question', { params: { email } }).then((r) => r.data);
 export const resetPassword = (data) => api.post('/auth/reset-password', data).then((r) => r.data);
 export const resetPasswordWithLink = (data) => api.post('/auth/reset-with-link', data).then((r) => r.data);
+export const logout = () => api.post('/auth/logout').then((r) => r.data);
 
 // Public: shown on the trial-expired / upgrade screen
 export const getPublicPlans = () => api.get('/auth/plans').then((r) => r.data);
@@ -99,6 +100,10 @@ export const getAccountMe = () => api.get('/account/me').then((r) => r.data);
 export const getAccountUsers = () => api.get('/account/users').then((r) => r.data);
 export const addAccountUser = (data) => api.post('/account/users', data).then((r) => r.data);
 export const deleteAccountUser = (email) => api.delete(`/account/users/${encodeURIComponent(email)}`).then((r) => r.data);
+export const getLoginSessions = () => api.get('/account/sessions').then((r) => r.data);
+
+// Staff activity (audit) log — owner-only
+export const getActivityLog = (params) => api.get('/activity', { params }).then((r) => r.data);
 
 // Super Admin
 export const superAdminExists = () => api.get('/superadmin/exists').then((r) => r.data);

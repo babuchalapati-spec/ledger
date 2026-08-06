@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Account = require('../models/Account');
 const PlatformUser = require('../models/PlatformUser');
-const { requireAuth } = require('../middleware/auth');
+const LoginSession = require('../models/LoginSession');
+const { requireAuth, requireOwner } = require('../middleware/auth');
 const { hashPassword } = require('../utils/password');
 
 const normalizeAnswer = (s) => (s || '').trim().toLowerCase();
@@ -17,7 +18,22 @@ router.get('/me', requireAuth, async (req, res) => {
       businessName: account.businessName,
       status: account.status,
       modules: account.modules,
+      role: req.user.role,
+      email: req.user.email,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Login/logout history for this account's staff, owner-only
+router.get('/sessions', requireAuth, requireOwner, async (req, res) => {
+  try {
+    const sessions = await LoginSession.find({ account: req.user.accountId })
+      .sort({ loginAt: -1 })
+      .limit(200)
+      .lean();
+    res.json(sessions);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

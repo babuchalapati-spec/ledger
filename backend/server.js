@@ -18,6 +18,7 @@ const itemRoutes = require('./routes/items');
 const orderRoutes = require('./routes/orders');
 const deliveryRoutes = require('./routes/deliveries');
 const projectRoutes = require('./routes/projects');
+const activityRoutes = require('./routes/activity');
 
 const app = express();
 const PORT = process.env.PORT || 8811;
@@ -43,6 +44,7 @@ app.use('/api/items', itemRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/activity', activityRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

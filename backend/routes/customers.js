@@ -5,6 +5,7 @@ const router = express.Router();
 const getCustomerModel = require('../models/tenant/Customer');
 const getEntryModel = require('../models/tenant/Entry');
 const { requireAuth } = require('../middleware/auth');
+const { logActivity } = require('../utils/activityLog');
 
 router.use(requireAuth);
 
@@ -67,6 +68,7 @@ router.post('/', async (req, res) => {
       phone,
       openingBalance: Number(openingBalance) || 0,
     });
+    await logActivity(req, { action: 'create', entityType: 'Customer', entityId: customer._id, summary: `Created customer "${customer.name}"` });
     res.status(201).json(customer);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -84,6 +86,7 @@ router.put('/:id', async (req, res) => {
       { new: true, runValidators: true }
     );
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
+    await logActivity(req, { action: 'update', entityType: 'Customer', entityId: customer._id, summary: `Updated customer "${customer.name}"` });
     res.json(customer);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -98,6 +101,7 @@ router.delete('/:id', async (req, res) => {
 
     const customer = await Customer.findByIdAndDelete(req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
+    await logActivity(req, { action: 'delete', entityType: 'Customer', entityId: customer._id, summary: `Deleted customer "${customer.name}"` });
 
     const entries = await Entry.find({ customer: req.params.id });
     const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads');

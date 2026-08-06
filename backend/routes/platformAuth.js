@@ -5,9 +5,23 @@ const Account = require('../models/Account');
 const PlatformUser = require('../models/PlatformUser');
 const Plan = require('../models/Plan');
 const PlatformSettings = require('../models/PlatformSettings');
+const LoginSession = require('../models/LoginSession');
 const { hashPassword, verifyPassword } = require('../utils/password');
 const { signUserToken } = require('../utils/jwt');
+const { requireAuth } = require('../middleware/auth');
 const { TRIAL_DURATION_MS, isTrialExpired } = require('../utils/trial');
+
+async function startSession({ account, user, req }) {
+  const session = await LoginSession.create({
+    account: account._id,
+    user: user._id,
+    email: user.email,
+    role: user.role,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'] || '',
+  });
+  return session._id.toString();
+}
 
 const normalizeAnswer = (s) => (s || '').trim().toLowerCase();
 const normalizeEmail = (s) => (s || '').trim().toLowerCase();
@@ -52,7 +66,8 @@ router.post('/register', async (req, res) => {
       securityAnswerSalt: aSalt,
     });
 
-    const token = signUserToken({ userId: user._id, accountId: account._id, dbName: account.dbName, role: user.role });
+    const sessionId = await startSession({ account, user, req });
+    const token = signUserToken({ userId: user._id, accountId: account._id, dbName: account.dbName, role: user.role, email: user.email, sessionId });
     res.status(201).json({ token, businessName: account.businessName, email: user.email });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -81,8 +96,25 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'This account is not active. Please contact support.' });
     }
 
-    const token = signUserToken({ userId: user._id, accountId: account._id, dbName: account.dbName, role: user.role });
+    const sessionId = await startSession({ account, user, req });
+    const token = signUserToken({ userId: user._id, accountId: account._id, dbName: account.dbName, role: user.role, email: user.email, sessionId });
     res.json({ token, businessName: account.businessName, email: user.email });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Marks the current session's logout time. Best-effort: the client discards the
+// JWT client-side regardless (tokens are stateless), this just records the event.
+router.post('/logout', requireAuth, async (req, res) => {
+  try {
+    if (req.user.sessionId) {
+      await LoginSession.updateOne(
+        { _id: req.user.sessionId, account: req.user.accountId, logoutAt: { $exists: false } },
+        { $set: { logoutAt: new Date() } }
+      );
+    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -6,6 +6,7 @@ const getSettingsModel = require('../models/tenant/Settings');
 const { factorFor } = require('../utils/units');
 const { generateOrderPdf } = require('../utils/generateOrderPdf');
 const { requireAuth } = require('../middleware/auth');
+const { logActivity } = require('../utils/activityLog');
 
 router.use(requireAuth);
 
@@ -73,6 +74,7 @@ router.post('/', async (req, res) => {
       status: 'pending',
     });
 
+    await logActivity(req, { action: 'create', entityType: 'Order', entityId: order._id, summary: `Created order with ${lineItems.length} item(s), total ₹${totalAmount}` });
     res.status(201).json(order);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -121,6 +123,7 @@ router.post('/:id/receive', async (req, res) => {
     order.status = 'received';
     order.receivedAt = new Date();
     await order.save();
+    await logActivity(req, { action: 'update', entityType: 'Order', entityId: order._id, summary: 'Marked order received (stock updated)' });
     res.json(order);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -142,6 +145,7 @@ router.delete('/:id', async (req, res) => {
       }
     }
     await Order.findByIdAndDelete(req.params.id);
+    await logActivity(req, { action: 'delete', entityType: 'Order', entityId: order._id, summary: `Deleted order (${order.status})` });
     res.json({ message: 'Order deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });

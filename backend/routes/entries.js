@@ -7,6 +7,7 @@ const getEntryModel = require('../models/tenant/Entry');
 const getCustomerModel = require('../models/tenant/Customer');
 const { requireAuth } = require('../middleware/auth');
 const { extractSingleBill, extractStatement } = require('../utils/billExtraction');
+const { logActivity } = require('../utils/activityLog');
 
 router.use(requireAuth);
 
@@ -103,6 +104,7 @@ router.post('/', upload.array('documents', 5), async (req, res) => {
       documents,
     });
 
+    await logActivity(req, { action: 'create', entityType: 'Entry', entityId: entry._id, summary: `Created ${entry.type} entry of ₹${entry.amount} for a customer` });
     res.status(201).json(entry);
   } catch (err) {
     deleteUploadedFiles(req.files);
@@ -161,6 +163,7 @@ router.post('/bulk', async (req, res) => {
     }));
 
     const created = await Entry.insertMany(docs);
+    await logActivity(req, { action: 'create', entityType: 'Entry', entityId: '', summary: `Bulk-created ${created.length} entries from a parsed statement` });
     res.status(201).json(created);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -218,6 +221,7 @@ router.put('/:id', upload.array('documents', 5), async (req, res) => {
     entry.documents.push(...newDocs);
 
     await entry.save();
+    await logActivity(req, { action: 'update', entityType: 'Entry', entityId: entry._id, summary: `Updated ${entry.type} entry of ₹${entry.amount}` });
     res.json(entry);
   } catch (err) {
     deleteUploadedFiles(req.files);
@@ -235,6 +239,7 @@ router.delete('/:id', async (req, res) => {
       const filePath = path.join(uploadDir, d.filename);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     });
+    await logActivity(req, { action: 'delete', entityType: 'Entry', entityId: entry._id, summary: `Deleted ${entry.type} entry of ₹${entry.amount}` });
     res.json({ message: 'Entry deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });

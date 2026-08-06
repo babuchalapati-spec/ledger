@@ -4,6 +4,7 @@ const getItemModel = require('../models/tenant/Item');
 const { factorFor } = require('../utils/units');
 const { defaultItems } = require('../utils/defaultItems');
 const { requireAuth } = require('../middleware/auth');
+const { logActivity } = require('../utils/activityLog');
 
 router.use(requireAuth);
 
@@ -36,6 +37,7 @@ router.post('/', async (req, res) => {
       stockQty: Number(stockQty) || 0,
       lowStockThreshold: Number(lowStockThreshold) || 0,
     });
+    await logActivity(req, { action: 'create', entityType: 'Item', entityId: item._id, summary: `Created item "${item.name}"` });
     res.status(201).json(item);
   } catch (err) {
     if (err.code === 11000) return res.status(400).json({ error: 'An item with this name already exists' });
@@ -66,6 +68,7 @@ router.put('/:id', async (req, res) => {
       { new: true, runValidators: true }
     );
     if (!item) return res.status(404).json({ error: 'Item not found' });
+    await logActivity(req, { action: 'update', entityType: 'Item', entityId: item._id, summary: `Updated item "${item.name}"` });
     res.json(item);
   } catch (err) {
     if (err.code === 11000) return res.status(400).json({ error: 'An item with this name already exists' });
@@ -79,6 +82,7 @@ router.delete('/:id', async (req, res) => {
     const Item = getItemModel(req.tenantConn);
     const item = await Item.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ error: 'Item not found' });
+    await logActivity(req, { action: 'delete', entityType: 'Item', entityId: item._id, summary: `Deleted item "${item.name}"` });
     res.json({ message: 'Item deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -101,6 +105,7 @@ router.post('/:id/restock', async (req, res) => {
 
     item.stockQty += qty * factor;
     await item.save();
+    await logActivity(req, { action: 'update', entityType: 'Item', entityId: item._id, summary: `Restocked "${item.name}" by ${quantity} ${unitLabel}` });
     res.json(item);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -40,6 +40,13 @@ async function requireAuth(req, res, next) {
   }
 }
 
+// Runs after requireAuth. Staff logins share the same account/tenant data but
+// shouldn't see who-did-what across the account or other staff's session history.
+function requireOwner(req, res, next) {
+  if (req.user?.role !== 'owner') return res.status(403).json({ error: 'Owner access required' });
+  next();
+}
+
 function requireSuperAdmin(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -55,4 +62,4 @@ function requireSuperAdmin(req, res, next) {
   }
 }
 
-module.exports = { requireAuth, requireSuperAdmin };
+module.exports = { requireAuth, requireOwner, requireSuperAdmin };

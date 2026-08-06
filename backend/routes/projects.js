@@ -7,6 +7,7 @@ const getProjectModel = require('../models/tenant/Project');
 const getProjectExpenseModel = require('../models/tenant/ProjectExpense');
 const { requireAuth } = require('../middleware/auth');
 const { computeSettlement } = require('../utils/settlement');
+const { logActivity } = require('../utils/activityLog');
 
 router.use(requireAuth);
 
@@ -66,6 +67,7 @@ router.post('/', async (req, res) => {
     if (cleanPeople.length < 2) return res.status(400).json({ error: 'Add at least 2 people to split expenses' });
 
     const project = await Project.create({ name, people: cleanPeople });
+    await logActivity(req, { action: 'create', entityType: 'Project', entityId: project._id, summary: `Created project "${project.name}"` });
     res.status(201).json(project);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -107,6 +109,7 @@ router.put('/:id', async (req, res) => {
       project.people = cleanPeople;
     }
     await project.save();
+    await logActivity(req, { action: 'update', entityType: 'Project', entityId: project._id, summary: `Updated project "${project.name}"` });
     res.json(project);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -130,6 +133,7 @@ router.delete('/:id', async (req, res) => {
     });
     await ProjectExpense.deleteMany({ project: project._id });
 
+    await logActivity(req, { action: 'delete', entityType: 'Project', entityId: project._id, summary: `Deleted project "${project.name}" and its expenses` });
     res.json({ message: 'Project deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -173,6 +177,7 @@ router.post('/:id/expenses', upload.array('receipts', 5), async (req, res) => {
       receipts,
     });
 
+    await logActivity(req, { action: 'create', entityType: 'ProjectExpense', entityId: expense._id, summary: `Added expense of ₹${expense.amount} for ${expense.person} on project "${project.name}"` });
     res.status(201).json(expense);
   } catch (err) {
     deleteUploadedFiles(req.files);
@@ -192,6 +197,7 @@ router.delete('/:id/expenses/:expenseId', async (req, res) => {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     });
 
+    await logActivity(req, { action: 'delete', entityType: 'ProjectExpense', entityId: expense._id, summary: `Deleted expense of ₹${expense.amount} for ${expense.person}` });
     res.json({ message: 'Expense deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });

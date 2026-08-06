@@ -5,6 +5,7 @@ const multer = require('multer');
 const router = express.Router();
 const getDeliveryModel = require('../models/tenant/Delivery');
 const { requireAuth } = require('../middleware/auth');
+const { logActivity } = require('../utils/activityLog');
 
 router.use(requireAuth);
 
@@ -53,6 +54,7 @@ router.post('/', async (req, res) => {
       items,
       notes,
     });
+    await logActivity(req, { action: 'create', entityType: 'Delivery', entityId: delivery._id, summary: `Created delivery for ${new Date(delivery.deliveryTime).toLocaleString()}` });
     res.status(201).json(delivery);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -72,6 +74,7 @@ router.put('/:id', async (req, res) => {
     if (notes !== undefined) delivery.notes = notes;
 
     await delivery.save();
+    await logActivity(req, { action: 'update', entityType: 'Delivery', entityId: delivery._id, summary: `Updated delivery scheduled for ${new Date(delivery.deliveryTime).toLocaleString()}` });
     res.json(delivery);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -88,6 +91,7 @@ router.post('/:id/deliver', async (req, res) => {
     delivery.status = 'delivered';
     delivery.deliveredAt = new Date();
     await delivery.save();
+    await logActivity(req, { action: 'update', entityType: 'Delivery', entityId: delivery._id, summary: 'Marked delivery as delivered' });
     res.json(delivery);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -130,6 +134,7 @@ router.delete('/:id', async (req, res) => {
       const filePath = path.join(uploadDir, d.filename);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     });
+    await logActivity(req, { action: 'delete', entityType: 'Delivery', entityId: delivery._id, summary: 'Deleted delivery record' });
     res.json({ message: 'Delivery deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });

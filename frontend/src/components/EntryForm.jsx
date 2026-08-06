@@ -8,6 +8,7 @@ const emptyForm = {
   date: todayStr(),
   description: '',
   billNumber: '',
+  category: '',
   amount: '',
   paymentMode: 'cash',
 };
@@ -62,6 +63,7 @@ export default function EntryForm({ customerId, onAdded }) {
       fd.append('type', form.type);
       fd.append('description', form.description);
       if (form.type === 'bill') fd.append('billNumber', form.billNumber);
+      fd.append('category', form.category);
       fd.append('amount', form.amount);
       if (form.type === 'payment') fd.append('paymentMode', form.paymentMode);
       files.forEach((f) => fd.append('documents', f));
@@ -130,6 +132,15 @@ export default function EntryForm({ customerId, onAdded }) {
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
           placeholder={form.type === 'bill' ? 'e.g. Purchase of goods' : 'e.g. Part payment'}
+        />
+      </label>
+
+      <label>
+        Category
+        <input
+          value={form.category}
+          onChange={(e) => setForm({ ...form, category: e.target.value })}
+          placeholder="e.g. Grocery, Hardware"
         />
       </label>
 

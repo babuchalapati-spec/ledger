@@ -85,7 +85,7 @@ async function findDuplicateBillNumber(Entry, billNumber, excludeId) {
 router.post('/', upload.array('documents', 5), async (req, res) => {
   try {
     const Entry = getEntryModel(req.tenantConn);
-    const { customer, date, type, description, billNumber, amount, paymentMode } = req.body;
+    const { customer, date, type, description, billNumber, category, amount, paymentMode } = req.body;
     if (!customer || !date || !type || !amount || !(Number(amount) > 0)) {
       deleteUploadedFiles(req.files);
       return res.status(400).json({ error: 'customer, date, type and a positive amount are required' });
@@ -112,6 +112,7 @@ router.post('/', upload.array('documents', 5), async (req, res) => {
       type,
       description,
       billNumber: type === 'bill' ? billNumber : '',
+      category,
       amount: Number(amount),
       paymentMode: type === 'payment' ? paymentMode : '',
       documents,
@@ -182,6 +183,7 @@ router.post('/bulk', async (req, res) => {
       type: e.type,
       description: e.description || '',
       billNumber: e.type === 'bill' ? (e.billNumber || '') : '',
+      category: e.category || '',
       amount: Number(e.amount),
       paymentMode: e.type === 'payment' ? (e.paymentMode || '') : '',
     }));
@@ -198,7 +200,7 @@ router.post('/bulk', async (req, res) => {
 router.put('/:id', upload.array('documents', 5), async (req, res) => {
   try {
     const Entry = getEntryModel(req.tenantConn);
-    const { date, type, description, billNumber, amount, paymentMode, keepDocuments } = req.body;
+    const { date, type, description, billNumber, category, amount, paymentMode, keepDocuments } = req.body;
 
     if (amount !== undefined && !(Number(amount) > 0)) {
       deleteUploadedFiles(req.files);
@@ -215,6 +217,7 @@ router.put('/:id', upload.array('documents', 5), async (req, res) => {
     if (type) entry.type = type;
     if (description !== undefined) entry.description = description;
     if (billNumber !== undefined) entry.billNumber = entry.type === 'bill' ? billNumber : '';
+    if (category !== undefined) entry.category = category;
     if (entry.type === 'bill' && (await findDuplicateBillNumber(Entry, entry.billNumber, entry._id))) {
       deleteUploadedFiles(req.files);
       return res.status(409).json({ error: `Bill number "${entry.billNumber}" is already used by another entry` });

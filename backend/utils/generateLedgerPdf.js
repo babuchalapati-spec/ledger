@@ -10,6 +10,16 @@ const COLS = [
   { key: 'balance', label: 'Balance', width: 85 },
 ];
 
+// Used for the category-grouped layout: no running-balance column since a
+// per-row running balance isn't meaningful once entries are split into groups.
+const GROUPED_COLS = [
+  { key: 'date', label: 'Date', width: 80 },
+  { key: 'particulars', label: 'Particulars', width: 195 },
+  { key: 'billNumber', label: 'Bill No.', width: 75 },
+  { key: 'debit', label: 'Payment (Dr)', width: 100 },
+  { key: 'credit', label: 'Bill (Cr)', width: 100 },
+];
+
 function fmtDate(d) {
   return new Date(d).toLocaleDateString('en-IN');
 }
@@ -18,12 +28,18 @@ function fmtAmt(n) {
   return n ? Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
 }
 
+function particularsFor(e) {
+  return e.description || (e.type === 'bill' ? 'Purchase / Bill' : `Payment${e.paymentMode ? ' - ' + e.paymentMode : ''}`);
+}
+
 function generateLedgerPdf({ customer, entries, openingBalance, totalBills, totalPayments, balance, business }, res) {
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
   doc.pipe(res);
 
   const left = doc.page.margins.left;
-  const tableWidth = COLS.reduce((s, c) => s + c.width, 0);
+  const hasCategories = entries.some((e) => e.category && e.category.trim());
+  const cols = hasCategories ? GROUPED_COLS : COLS;
+  const tableWidth = cols.reduce((s, c) => s + c.width, 0);
 
   // Business letterhead
   if (business && business.businessName) {
@@ -52,7 +68,7 @@ function generateLedgerPdf({ customer, entries, openingBalance, totalBills, tota
   function drawRowLines(rowY, height) {
     let x = left;
     doc.moveTo(left, rowY).lineTo(left + tableWidth, rowY).stroke();
-    COLS.forEach((c) => {
+    cols.forEach((c) => {
       doc.moveTo(x, rowY).lineTo(x, rowY + height).stroke();
       x += c.width;
     });
@@ -62,101 +78,159 @@ function generateLedgerPdf({ customer, entries, openingBalance, totalBills, tota
   function drawHeaderRow(rowY) {
     doc.font('Helvetica-Bold').fontSize(9);
     let x = left;
-    COLS.forEach((c) => {
+    cols.forEach((c) => {
       doc.text(c.label, x + 3, rowY + 6, { width: c.width - 6, align: c.key === 'particulars' ? 'left' : 'center' });
       x += c.width;
     });
     drawRowLines(rowY, rowHeight);
   }
 
-  function ensureSpace(neededHeight) {
+  function ensureSpace(neededHeight, redrawHeader) {
     if (y + neededHeight > doc.page.height - doc.page.margins.bottom - 60) {
       doc.addPage();
       y = doc.page.margins.top;
-      drawHeaderRow(y);
-      y += rowHeight;
+      if (redrawHeader) {
+        redrawHeader(y);
+        y += rowHeight;
+      }
     }
   }
 
-  drawHeaderRow(y);
-  y += rowHeight;
-
-  if (openingBalance) {
-    ensureSpace(rowHeight);
-    doc.font('Helvetica-Oblique').fontSize(9);
+  function drawRow(rowY, values, opts = {}) {
+    doc.font(opts.bold ? 'Helvetica-Bold' : (opts.italic ? 'Helvetica-Oblique' : 'Helvetica')).fontSize(9);
     let x = left;
-    const openingRow = {
-      date: '',
-      particulars: 'Opening Balance',
-      billNumber: '',
-      debit: openingBalance < 0 ? fmtAmt(Math.abs(openingBalance)) : '',
-      credit: openingBalance > 0 ? fmtAmt(openingBalance) : '',
-      balance: fmtAmt(openingBalance),
-    };
-    COLS.forEach((c) => {
-      doc.text(openingRow[c.key], x + 3, y + 6, {
+    cols.forEach((c) => {
+      doc.text(values[c.key] || '', x + 3, rowY + 6, {
         width: c.width - 6,
         align: c.key === 'particulars' ? 'left' : (c.key === 'date' ? 'center' : 'right'),
       });
       x += c.width;
     });
-    drawRowLines(y, rowHeight);
-    y += rowHeight;
+    drawRowLines(rowY, rowHeight);
   }
 
-  doc.font('Helvetica').fontSize(9);
-  entries.forEach((e) => {
-    ensureSpace(rowHeight);
-    const particulars = e.description || (e.type === 'bill' ? 'Purchase / Bill' : `Payment${e.paymentMode ? ' - ' + e.paymentMode : ''}`);
-    let x = left;
-    const row = {
-      date: fmtDate(e.date),
-      particulars,
-      billNumber: e.billNumber || '-',
-      debit: e.type === 'payment' ? fmtAmt(e.amount) : '',
-      credit: e.type === 'bill' ? fmtAmt(e.amount) : '',
-      balance: fmtAmt(e.runningBalance),
-    };
-    COLS.forEach((c) => {
-      doc.text(row[c.key], x + 3, y + 6, {
-        width: c.width - 6,
-        align: c.key === 'particulars' ? 'left' : (c.key === 'date' ? 'center' : 'right'),
-      });
-      x += c.width;
-    });
-    drawRowLines(y, rowHeight);
+  if (!hasCategories) {
+    // Today's flat chronological layout with a running balance column, unchanged.
+    drawHeaderRow(y);
     y += rowHeight;
-  });
 
-  // Totals row
-  ensureSpace(rowHeight * 2);
-  doc.font('Helvetica-Bold').fontSize(9);
-  let x = left;
-  const totalsRow = {
-    date: '',
-    particulars: 'TOTAL',
-    billNumber: '',
-    debit: fmtAmt(totalPayments),
-    credit: fmtAmt(totalBills),
-    balance: fmtAmt(balance),
-  };
-  COLS.forEach((c) => {
-    doc.text(totalsRow[c.key], x + 3, y + 6, {
-      width: c.width - 6,
-      align: c.key === 'particulars' ? 'left' : (c.key === 'date' ? 'center' : 'right'),
+    if (openingBalance) {
+      ensureSpace(rowHeight, drawHeaderRow);
+      drawRow(y, {
+        particulars: 'Opening Balance',
+        debit: openingBalance < 0 ? fmtAmt(Math.abs(openingBalance)) : '',
+        credit: openingBalance > 0 ? fmtAmt(openingBalance) : '',
+        balance: fmtAmt(openingBalance),
+      }, { italic: true });
+      y += rowHeight;
+    }
+
+    entries.forEach((e) => {
+      ensureSpace(rowHeight, drawHeaderRow);
+      drawRow(y, {
+        date: fmtDate(e.date),
+        particulars: particularsFor(e),
+        billNumber: e.billNumber || '-',
+        debit: e.type === 'payment' ? fmtAmt(e.amount) : '',
+        credit: e.type === 'bill' ? fmtAmt(e.amount) : '',
+        balance: fmtAmt(e.runningBalance),
+      });
+      y += rowHeight;
     });
-    x += c.width;
-  });
-  drawRowLines(y, rowHeight);
-  y += rowHeight + 20;
 
-  doc.font('Helvetica').fontSize(10);
-  doc.text(
-    balance >= 0
-      ? `Balance Due from Customer: Rs. ${fmtAmt(balance)}`
-      : `Advance / Excess Paid by Customer: Rs. ${fmtAmt(Math.abs(balance))}`,
-    left, y
-  );
+    ensureSpace(rowHeight * 2, drawHeaderRow);
+    drawRow(y, {
+      particulars: 'TOTAL',
+      debit: fmtAmt(totalPayments),
+      credit: fmtAmt(totalBills),
+      balance: fmtAmt(balance),
+    }, { bold: true });
+    y += rowHeight + 20;
+
+    doc.font('Helvetica').fontSize(10);
+    doc.text(
+      balance >= 0
+        ? `Balance Due from Customer: Rs. ${fmtAmt(balance)}`
+        : `Advance / Excess Paid by Customer: Rs. ${fmtAmt(Math.abs(balance))}`,
+      left, y
+    );
+  } else {
+    // Grouped-by-category layout: one mini-table per category, each with its
+    // own subtotal ("category balance"), then a final summary combining them.
+    const groups = new Map();
+    entries.forEach((e) => {
+      const key = (e.category && e.category.trim()) || 'Uncategorized';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(e);
+    });
+    const sortedCategories = Array.from(groups.keys()).sort((a, b) => {
+      if (a === 'Uncategorized') return 1;
+      if (b === 'Uncategorized') return -1;
+      return a.localeCompare(b);
+    });
+
+    const categoryBalances = [];
+
+    sortedCategories.forEach((category) => {
+      const groupEntries = groups.get(category);
+
+      ensureSpace(rowHeight * 2);
+      doc.font('Helvetica-Bold').fontSize(12).text(category, left, y);
+      y += 18;
+
+      drawHeaderRow(y);
+      y += rowHeight;
+
+      let categoryBills = 0;
+      let categoryPayments = 0;
+      groupEntries.forEach((e) => {
+        ensureSpace(rowHeight, drawHeaderRow);
+        drawRow(y, {
+          date: fmtDate(e.date),
+          particulars: particularsFor(e),
+          billNumber: e.billNumber || '-',
+          debit: e.type === 'payment' ? fmtAmt(e.amount) : '',
+          credit: e.type === 'bill' ? fmtAmt(e.amount) : '',
+        });
+        y += rowHeight;
+        if (e.type === 'bill') categoryBills += e.amount;
+        else categoryPayments += e.amount;
+      });
+
+      const categoryBalance = categoryBills - categoryPayments;
+      categoryBalances.push({ category, balance: categoryBalance });
+
+      ensureSpace(rowHeight, drawHeaderRow);
+      drawRow(y, {
+        particulars: `${category} Subtotal`,
+        debit: fmtAmt(categoryPayments),
+        credit: fmtAmt(categoryBills),
+      }, { bold: true });
+      y += rowHeight + 16;
+    });
+
+    // Final summary: opening balance + each category's balance = final balance.
+    ensureSpace(rowHeight * (categoryBalances.length + 3));
+    doc.font('Helvetica-Bold').fontSize(12).text('Summary', left, y);
+    y += 18;
+    doc.font('Helvetica').fontSize(10);
+
+    if (openingBalance) {
+      doc.text(`Opening Balance: Rs. ${fmtAmt(openingBalance)}`, left, y);
+      y += 16;
+    }
+    categoryBalances.forEach(({ category, balance: catBalance }) => {
+      doc.text(`${category}: Rs. ${fmtAmt(catBalance)}`, left, y);
+      y += 16;
+    });
+    y += 6;
+    doc.font('Helvetica-Bold').fontSize(11).text(
+      balance >= 0
+        ? `FINAL BALANCE DUE FROM CUSTOMER: Rs. ${fmtAmt(balance)}`
+        : `FINAL ADVANCE / EXCESS PAID BY CUSTOMER: Rs. ${fmtAmt(Math.abs(balance))}`,
+      left, y
+    );
+  }
 
   doc.end();
 }

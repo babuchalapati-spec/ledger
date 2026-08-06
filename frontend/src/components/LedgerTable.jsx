@@ -25,6 +25,7 @@ export default function LedgerTable({ data, onChanged }) {
       date: new Date(e.date).toISOString().slice(0, 10),
       description: e.description || '',
       billNumber: e.billNumber || '',
+      category: e.category || '',
       amount: e.amount,
       paymentMode: e.paymentMode || 'cash',
     });
@@ -48,6 +49,7 @@ export default function LedgerTable({ data, onChanged }) {
       fd.append('type', editForm.type);
       fd.append('description', editForm.description);
       if (editForm.type === 'bill') fd.append('billNumber', editForm.billNumber);
+      fd.append('category', editForm.category);
       fd.append('amount', editForm.amount);
       if (editForm.type === 'payment') fd.append('paymentMode', editForm.paymentMode);
       await updateEntry(id, fd);
@@ -70,6 +72,7 @@ export default function LedgerTable({ data, onChanged }) {
             <th>Date</th>
             <th>Particulars</th>
             <th>Bill No.</th>
+            <th>Category</th>
             <th className="num">Bill (Cr)</th>
             <th className="num">Payment (Dr)</th>
             <th className="num">Balance</th>
@@ -80,7 +83,7 @@ export default function LedgerTable({ data, onChanged }) {
         <tbody>
           {entries.length === 0 && (
             <tr>
-              <td colSpan={8} className="muted center">No entries yet. Add a bill or payment above.</td>
+              <td colSpan={9} className="muted center">No entries yet. Add a bill or payment above.</td>
             </tr>
           )}
           {entries.map((e) =>
@@ -119,6 +122,9 @@ export default function LedgerTable({ data, onChanged }) {
                     <input value={editForm.billNumber} onChange={(ev) => setEditForm({ ...editForm, billNumber: ev.target.value })} />
                   ) : '-'}
                 </td>
+                <td>
+                  <input value={editForm.category} placeholder="Category" onChange={(ev) => setEditForm({ ...editForm, category: ev.target.value })} />
+                </td>
                 <td className="num" colSpan={2}>
                   <input
                     type="number" min="0" step="0.01"
@@ -141,6 +147,7 @@ export default function LedgerTable({ data, onChanged }) {
                 <td>{fmtDate(e.date)}</td>
                 <td>{e.description || (e.type === 'bill' ? 'Purchase / Bill' : `Payment${e.paymentMode ? ' - ' + e.paymentMode : ''}`)}</td>
                 <td>{e.billNumber || '-'}</td>
+                <td>{e.category || '-'}</td>
                 <td className="num">{e.type === 'bill' ? fmt(e.amount) : ''}</td>
                 <td className="num">{e.type === 'payment' ? fmt(e.amount) : ''}</td>
                 <td className="num">{fmt(e.runningBalance)}</td>
@@ -163,7 +170,7 @@ export default function LedgerTable({ data, onChanged }) {
         </tbody>
         <tfoot>
           <tr className="totals-row">
-            <td colSpan={3}>TOTAL</td>
+            <td colSpan={4}>TOTAL</td>
             <td className="num">{fmt(totalBills)}</td>
             <td className="num">{fmt(totalPayments)}</td>
             <td className={`num ${balance > 0 ? 'due' : balance < 0 ? 'advance' : ''}`}>{fmt(balance)}</td>
